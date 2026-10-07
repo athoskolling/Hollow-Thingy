@@ -1,0 +1,20 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+# Python / Node caches
+__pycache__/
+*.pyc
+node_modules/
+# local test output
+shots/
+*.log
+# your personal music file is not versioned (add it locally)
+assets/audio/*.mp3
+assets/audio/*.ogg
+assets/audio/*.m4a
+# personal backups / real saves
+hollow-knight-companion-*.json
+user[0-9].dat
+user[0-9].dat.bak*
