@@ -1,7 +1,6 @@
 /*
  * Hollow Knight Companion — INTERACTIVE WORLD MAP
- * An ORIGINAL schematic of Hallownest: each region is a cluster of "rooms" placed in roughly
- * the right direction relative to its neighbours. It is not a tracing of the official map.
+ * Renders the ORIGINAL rooms-and-corridors redrawing in mapgeo.js (not the official map).
  * Markers: benches, stag stations, vendors, bosses, roots, springs, trams, Cornifer, cocoons,
  * landmarks and (optionally) checklist items still missing. Exact spots are approximate.
  *
@@ -9,27 +8,7 @@
  */
 (function (root) {
   'use strict';
-  var VW = 1000, VH = 700;
-  var SHAPES = {
-    'howling-cliffs':       [[30, 30, 140, 46], [90, 70, 140, 52], [40, 76, 70, 60]],
-    'dirtmouth':            [[262, 58, 200, 30], [300, 42, 72, 20], [420, 48, 30, 14]],
-    'crystal-peak':         [[500, 20, 170, 60], [560, 76, 190, 70], [690, 40, 90, 60], [600, 146, 110, 36]],
-    'greenpath':            [[20, 150, 220, 70], [40, 216, 190, 60], [150, 190, 110, 40]],
-    'forgotten-crossroads': [[268, 100, 226, 66], [290, 162, 214, 64], [496, 150, 74, 70], [262, 150, 50, 40]],
-    'resting-grounds':      [[790, 150, 150, 60], [820, 206, 120, 70], [756, 186, 44, 40]],
-    'fog-canyon':           [[250, 240, 150, 60], [270, 296, 110, 50]],
-    'queens-gardens':       [[20, 300, 200, 70], [40, 366, 170, 70], [200, 330, 40, 50]],
-    'fungal-wastes':        [[250, 356, 170, 60], [260, 412, 150, 70], [410, 382, 30, 40]],
-    'city-of-tears':        [[432, 240, 250, 80], [450, 316, 240, 80], [680, 280, 52, 60]],
-    'kingdoms-edge':        [[800, 290, 150, 90], [830, 376, 130, 110], [760, 330, 50, 50]],
-    'the-hive':             [[880, 500, 90, 60]],
-    'royal-waterways':      [[450, 410, 262, 50], [480, 456, 220, 40], [710, 420, 40, 30]],
-    'deepnest':             [[20, 460, 220, 80], [30, 536, 250, 90], [240, 500, 60, 60]],
-    'ancient-basin':        [[380, 510, 250, 60], [410, 566, 200, 50], [620, 530, 60, 40]],
-    'the-abyss':            [[400, 630, 180, 46], [440, 672, 100, 22]],
-    'white-palace':         [[700, 594, 110, 46], [722, 636, 66, 26]],
-    'godhome':              [[840, 604, 130, 46], [870, 646, 70, 28]]
-  };
+  var G = root.HK.MapGeo, VW = G.W, VH = G.H, SHAPES = G.ROOMS, MAXK = 10;
   var DREAM = { 'white-palace': 1, 'godhome': 1 };
   var COLORS = { dirtmouth: '#c9d4e8', crossroads: '#7f9fd6', greenpath: '#7fcf7a', fungal: '#d9a45e', city: '#6f98e8', crystal: '#e59ad0',
     resting: '#b09ae8', waterways: '#5fc0b0', fog: '#d19ae6', basin: '#9aa7bf', edge: '#d9d3c2', deepnest: '#9a8494', hive: '#f0bf4a',
@@ -48,10 +27,8 @@
     r.forEach(function (q) { x1 = Math.min(x1, q[0]); y1 = Math.min(y1, q[1]); x2 = Math.max(x2, q[0] + q[2]); y2 = Math.max(y2, q[1] + q[3]); });
     return { x: x1, y: y1, w: x2 - x1, h: y2 - y1, cx: (x1 + x2) / 2, cy: (y1 + y2) / 2 };
   }
-  function labelPos(id) {
-    var main = SHAPES[id][0];
-    return { x: main[0] + main[2] / 2, y: main[1] + main[3] / 2 };
-  }
+  function labelPos(id) { var l = G.LABELS[id]; if (l) return { x: l[0], y: l[1] }; var b = bbox(id); return { x: b.cx, y: b.cy }; }
+  function akey(p) { return p.fromItem ? p.id : p.region + '|' + p.name; }
   function shortName(n) { return n.replace(" & King's Pass", '').replace(' & Colosseum', ''); }
   function seeded(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return function () { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 10000) / 10000; }; }
 
@@ -72,50 +49,68 @@
     ALLPOIS = out;
     return out;
   }
+  function insideRegion(rid, x, y, m) {
+    return SHAPES[rid].some(function (q) { return x >= q[0] + m && x <= q[0] + q[2] - m && y >= q[1] + m && y <= q[1] + q[3] - m; });
+  }
   function positions(DATA, POI) {
     if (POSCACHE) return POSCACHE;
     POSCACHE = {};
-    var pois = allPois(DATA, POI);
+    var pois = allPois(DATA, POI), GA = 2.39996;
     Object.keys(SHAPES).forEach(function (rid) {
       var list = pois.filter(function (p) { return p.region === rid; })
         .sort(function (a, b) { return ORDER.indexOf(a.type) - ORDER.indexOf(b.type); });
       if (!list.length) return;
-      var lp = labelPos(rid), reg = (DATA.REGIONS.filter(function (r) { return r.id === rid; })[0] || { name: rid });
-      var lw = shortName(reg.name).length * 4.4 + 12, lh = 17;
-      var cands = [], sp = 20, m = 8;
-      while (sp >= 6) {
+      var used = [], perAnchor = {}, rest = [];
+      var lp = labelPos(rid), reg = DATA.REGIONS.filter(function (r) { return r.id === rid; })[0] || { name: rid };
+      var lw = shortName(reg.name).length * 11 + 22;
+      function onLabel(x, y) { return Math.abs(x - lp.x) < lw && y > lp.y - 34 && y < lp.y + 34; }
+      // 1) markers with a known sub-area: spiral around the anchor, staying inside the region's rooms
+      list.forEach(function (p) {
+        var an = G.AT[akey(p)], A = an && G.SUB[an];
+        if (!A) { rest.push(p); return; }
+        var n = perAnchor[an] = (perAnchor[an] || 0), pt = null;
+        for (var i = n; i < n + 400; i++) {
+          var r = i === 0 ? 0 : 15 + 9 * Math.sqrt(i), ang = i * GA;
+          var x = A[0] + Math.cos(ang) * r, y = A[1] + Math.sin(ang) * r * 0.8;
+          if (!insideRegion(rid, x, y, 7) || onLabel(x, y)) continue;
+          if (used.some(function (u) { return (u[0] - x) * (u[0] - x) + (u[1] - y) * (u[1] - y) < 23 * 23; })) continue;
+          pt = [x, y]; perAnchor[an] = i + 1; break;
+        }
+        if (!pt) { rest.push(p); return; }
+        used.push(pt);
+        POSCACHE[p.id] = { x: Math.round(pt[0]), y: Math.round(pt[1]) };
+      });
+      // 2) the rest: farthest-point sampling inside the rooms
+      if (!rest.length) return;
+      var cands = [], sp = 22, rnd = seeded(rid);
+      while (sp >= 8) {
         cands = [];
-        SHAPES[rid].forEach(function (q, qi) {
-          for (var x = q[0] + m; x <= q[0] + q[2] - m; x += sp) {
-            for (var y = q[1] + m; y <= q[1] + q[3] - m; y += sp) {
-              if (Math.abs(x - lp.x) < lw && Math.abs(y - lp.y) < lh) continue;
-              cands.push([x, y]);
-            }
+        SHAPES[rid].forEach(function (q) {
+          for (var x = q[0] + 10; x <= q[0] + q[2] - 10; x += sp) for (var y = q[1] + 10; y <= q[1] + q[3] - 10; y += sp) {
+            if (onLabel(x, y)) continue;
+            cands.push([x + (rnd() - 0.5) * 6, y + (rnd() - 0.5) * 6]);
           }
         });
-        if (cands.length >= list.length * 1.4) break;
-        sp -= 2;
+        if (cands.length >= (rest.length + used.length) * 1.3) break;
+        sp -= 3;
       }
-      var rnd = seeded(rid);
-      cands.forEach(function (c) { c[0] += (rnd() - 0.5) * sp * 0.5; c[1] += (rnd() - 0.5) * sp * 0.4; });
-      var chosen = [];
-      list.forEach(function (p, i) {
+      rest.forEach(function (p, i) {
         var best = null, bestD = -1;
         cands.forEach(function (c) {
           if (c.used) return;
           var d = Infinity;
-          chosen.forEach(function (o) { var dx = c[0] - o[0], dy = c[1] - o[1]; d = Math.min(d, dx * dx + dy * dy); });
-          var dl = Math.pow(c[0] - lp.x, 2) / 4 + Math.pow(c[1] - lp.y, 2);
-          d = Math.min(d, dl * 1.2);
+          used.forEach(function (o) { var dx = c[0] - o[0], dy = c[1] - o[1]; d = Math.min(d, dx * dx + dy * dy); });
           if (d > bestD) { bestD = d; best = c; }
         });
-        if (!best) { best = [lp.x + (i % 6) * 6 - 15, lp.y + 16 + Math.floor(i / 6) * 6]; } else best.used = true;
-        chosen.push(best);
-        POSCACHE[p.id] = { x: Math.round(best[0] * 10) / 10, y: Math.round(best[1] * 10) / 10 };
+        if (!best) best = [lp.x + (i % 6) * 14 - 35, lp.y + 30 + Math.floor(i / 6) * 14]; else best.used = true;
+        used.push(best);
+        POSCACHE[p.id] = { x: Math.round(best[0]), y: Math.round(best[1]) };
       });
     });
     return POSCACHE;
   }
+  function found(ctx) { return (ctx.store.get().settings || {}).poiFound || {}; }
+  function isFound(ctx, p) { return p.item ? ctx.E.isDone(p.item) : !!found(ctx)[p.id]; }
 
   /* ----------------------------- rendering ----------------------------- */
   function regionStatusMap(ctx) {
@@ -147,39 +142,45 @@
     h += '<g class="wm-world">';
     h += '<rect x="0" y="0" width="' + VW + '" height="' + VH + '" fill="url(#wm-vig)" pointer-events="none"/>';
     // dream realm frame
-    h += '<g class="wm-dream" pointer-events="none"><rect x="688" y="582" width="296" height="108" rx="14"/><text x="836" y="578">DREAM REALM</text></g>';
+    h += '<g class="wm-dream" pointer-events="none"><rect x="1325" y="1478" width="590" height="140" rx="20"/><text x="1620" y="1468">DREAM REALM</text></g>';
     // regions
     DATA.REGIONS.forEach(function (r) {
       if (!SHAPES[r.id]) return;
       var st = stat[r.id], col = COLORS[r.theme] || '#9fb3d6', rects = SHAPES[r.id];
       var cls = 'wm-reg st-' + st.status + (DREAM[r.id] ? ' dream' : '') + (sel === r.id ? ' sel' : '');
       h += '<g class="' + cls + '" data-region="' + r.id + '" style="--c:' + col + '" tabindex="0" role="button" aria-label="' + esc(r.name) + ' — ' + st.status + ', ' + st.p.mainDone + ' of ' + st.p.main + ' main items">';
-      rects.forEach(function (q) { h += '<rect class="ro" x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="5"/>'; });
-      rects.forEach(function (q) { h += '<rect class="rf" x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="5"/>'; });
-      rects.forEach(function (q) { h += '<rect class="rh" x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="5"/>'; });
+      rects.forEach(function (q) { h += '<rect class="ro" x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="7"/>'; });
+      rects.forEach(function (q) { h += '<rect class="rf" x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="7"/>'; });
+      rects.forEach(function (q) { h += '<rect class="rh" x="' + q[0] + '" y="' + q[1] + '" width="' + q[2] + '" height="' + q[3] + '" rx="7"/>'; });
       var lp = labelPos(r.id);
       h += '<g class="wm-label" data-lx="' + lp.x + '" data-ly="' + lp.y + '" transform="translate(' + lp.x + ',' + lp.y + ')">' +
-        '<text class="ln" y="-1">' + esc(shortName(r.name)) + '</text>' +
-        '<text class="lp" y="11">' + (st.status === 'locked' ? '🔒 ' : st.status === 'complete' ? '✓ ' : '') + st.p.mainDone + '/' + st.p.main + '</text></g>';
+        '<text class="ln" y="0">' + esc(shortName(r.name)) + '</text>' +
+        '<text class="lp" y="22">' + (st.status === 'locked' ? '🔒 ' : st.status === 'complete' ? '✓ ' : '') + st.p.mainDone + '/' + st.p.main + '</text></g>';
       h += '</g>';
     });
+    // sub-area labels (visible when zoomed in)
+    h += '<g class="wm-subs" pointer-events="none">';
+    Object.keys(G.SUB).forEach(function (k) { var a = G.SUB[k]; if (a[2]) h += '<text class="wm-sub" data-lx="' + a[0] + '" data-ly="' + (a[1] - 16) + '" x="' + a[0] + '" y="' + (a[1] - 16) + '">' + esc(a[2]) + '</text>'; });
+    h += '</g>';
     // markers
-    var pois = allPois(DATA, POI);
+    var pois = allPois(DATA, POI), hideFound = !!(s.settings || {}).mapHideFound, q0 = (VIEW[key] && VIEW[key].q || '').toLowerCase();
     h += '<g class="wm-pois">';
     pois.forEach(function (p) {
       if (!layers[p.type]) return;
-      var done = p.item ? E.isDone(p.item) : false;
+      var done = isFound(ctx, p);
       if (p.type === 'item' && done) return; // "items left" only
+      if (hideFound && done) return;
+      var hit = q0 && (p.name + ' ' + p.note).toLowerCase().indexOf(q0) >= 0;
       if (p.item === 'void-heart' && E.isVoidHeartLocked()) { /* keep marker, warning in popover */ }
       var q = pos[p.id]; if (!q) return;
       var t = root.HK.POI.TYPES[p.type];
-      h += '<g class="wm-poi t-' + p.type + (done ? ' done' : '') + (VIEW[key] && VIEW[key].poi === p.id ? ' on' : '') + '" data-poi="' + esc(p.id) + '" data-x="' + q.x + '" data-y="' + q.y + '" transform="translate(' + q.x + ',' + q.y + ')" style="--pc:' + t.color + '" tabindex="0" role="button" aria-label="' + esc(t.one + ': ' + p.name) + '">' +
-        '<circle r="7.2"/><use href="#wm-i-' + TYPE_SYMBOL[p.type] + '" x="-5" y="-5" width="10" height="10"/>' +
-        (done ? '<circle class="dk" cx="5.5" cy="-5.5" r="3"/>' : '') + '</g>';
+      h += '<g class="wm-poi t-' + p.type + (done ? ' done' : '') + (hit ? ' hit' : '') + (q0 && !hit ? ' dim' : '') + (VIEW[key] && VIEW[key].poi === p.id ? ' on' : '') + '" data-poi="' + esc(p.id) + '" data-x="' + q.x + '" data-y="' + q.y + '" transform="translate(' + q.x + ',' + q.y + ')" style="--pc:' + t.color + '" tabindex="0" role="button" aria-label="' + esc(t.one + ': ' + p.name) + '">' +
+        '<circle r="13"/><use href="#wm-i-' + TYPE_SYMBOL[p.type] + '" x="-9" y="-9" width="18" height="18"/>' +
+        (done ? '<circle class="dk" cx="10" cy="-10" r="5.5"/>' : '') + '</g>';
     });
     h += '</g>';
     // compass (original ornament)
-    h += '<g class="wm-compass" transform="translate(345,655)" pointer-events="none"><circle r="24"/><path d="M0-30 5 0 0 30-5 0z"/><path d="M-30 0 0 4 30 0 0-4z" opacity=".5"/><text y="-34">N</text></g>';
+    h += '<g class="wm-compass" transform="translate(1950,1240)" pointer-events="none"><circle r="34"/><path d="M0-44 7 0 0 44-7 0z"/><path d="M-44 0 0 6 44 0 0-6z" opacity=".5"/><text y="-50">N</text></g>';
     h += '</g></svg>';
     return h;
   }
@@ -189,18 +190,20 @@
     return out;
   }
   function layerCounts(ctx) {
-    var c = {}, E = ctx.E;
+    var c = {}, f = {}, E = ctx.E;
     allPois(ctx.DATA, root.HK.POI).forEach(function (p) {
       if (p.type === 'item' && p.item && E.isDone(p.item)) return;
       c[p.type] = (c[p.type] || 0) + 1;
+      if (p.type !== 'item' && isFound(ctx, p)) f[p.type] = (f[p.type] || 0) + 1;
     });
+    c.found = f;
     return c;
   }
   function layerChips(ctx, compact) {
     var L = getLayers(ctx), T = root.HK.POI.TYPES, c = layerCounts(ctx), I = root.HK.Icons;
     return ORDER.map(function (k) {
       return '<button type="button" class="wm-layer' + (L[k] ? ' on' : '') + '" data-wm-layer="' + k + '" aria-pressed="' + !!L[k] + '" style="--pc:' + T[k].color + '">' +
-        I.svg(TYPE_SYMBOL[k] === 'skull' ? 'skull' : TYPE_SYMBOL[k]) + '<span>' + esc(T[k].label) + '</span><b>' + (k === 'bench' ? root.HK.POI.BENCHES_TOTAL : (c[k] || 0)) + '</b></button>';
+        I.svg(TYPE_SYMBOL[k] === 'skull' ? 'skull' : TYPE_SYMBOL[k]) + '<span>' + esc(T[k].label) + '</span><b>' + (k === 'item' ? (c[k] || 0) : (c.found[k] || 0) + '/' + (c[k] || 0)) + '</b></button>';
     }).join('');
   }
   function legend() {
@@ -210,16 +213,20 @@
   function html(ctx, key, opts) {
     opts = opts || {};
     var I = root.HK.Icons;
-    var h = '<div class="wm' + (opts.compact ? ' compact' : ' full') + '" data-wm="' + key + '">';
+    var v = VIEW[key] || {}, st = ctx.store.get().settings || {};
+    var h = '<div class="wm' + (opts.compact ? ' compact' : ' full') + (v.fs ? ' wm-fs' : '') + '" data-wm="' + key + '">';
     h += '<div class="wm-stage">' + svgMarkup(ctx, key) +
+      '<div class="wm-search"><input type="search" placeholder="Search the map…" value="' + esc(v.q || '') + '" data-wm-search aria-label="Search markers on the map"><div class="wm-results" hidden></div></div>' +
       '<div class="wm-zoom"><button type="button" class="icon-btn" data-wm-zoom="in" aria-label="Zoom in">' + I.svg('plus') + '</button>' +
       '<button type="button" class="icon-btn" data-wm-zoom="out" aria-label="Zoom out">' + I.svg('minus') + '</button>' +
       '<button type="button" class="icon-btn" data-wm-zoom="reset" aria-label="Reset view">' + I.svg('target') + '</button>' +
+      '<button type="button" class="icon-btn" data-wm-fs aria-label="Full screen">' + I.svg('expand') + '</button>' +
       (opts.compact ? '<button type="button" class="icon-btn" data-wm-toggle-layers aria-label="Map layers">' + I.svg('layers') + '</button>' : '') + '</div>' +
       '<div class="wm-pop" hidden></div>' +
       (opts.compact ? '<div class="wm-layers-pop" hidden><div class="wm-layers">' + layerChips(ctx, true) + '</div></div>' : '') +
       '</div>';
-    if (!opts.compact) h += '<div class="wm-layers">' + layerChips(ctx) + '<button type="button" class="wm-layer all" data-wm-all="1">All</button><button type="button" class="wm-layer all" data-wm-all="0">None</button></div>';
+    if (!opts.compact) h += '<div class="wm-layers">' + layerChips(ctx) + '<button type="button" class="wm-layer all" data-wm-all="1">All</button><button type="button" class="wm-layer all" data-wm-all="0">None</button>' +
+      '<label class="wm-layer all"><input type="checkbox" data-wm-hidefound' + (st.mapHideFound ? ' checked' : '') + '> Hide found</label></div>';
     h += legend() + '<p class="wm-note">' + esc(root.HK.POI.NOTE) + '</p></div>';
     return h;
   }
@@ -240,6 +247,7 @@
         '<label class="toggle"><input type="checkbox" class="chk" data-action="toggle" data-id="' + it.id + '"' + (done ? ' checked' : '') + '> ' + esc(it.name) + '</label>') +
         '<button type="button" class="btn tiny" data-action="open-item" data-id="' + it.id + '">Details</button></div>';
     }
+    if (!it) h += '<div class="wm-pop-actions"><button type="button" class="btn tiny' + (isFound(ctx, p) ? ' found' : '') + '" data-wm-found="' + esc(p.id) + '">' + (isFound(ctx, p) ? '✓ Found' : 'Mark as found') + '</button></div>';
     if (p.wiki) h += '<a class="wm-wiki" href="' + p.wiki + '" target="_blank" rel="noopener">Wiki ↗</a>';
     return h;
   }
@@ -252,24 +260,27 @@
     var key = wm.getAttribute('data-wm'), compact = wm.classList.contains('compact');
     var v = VIEW[key] || (VIEW[key] = { x: 0, y: 0, k: 1, poi: null });
     var svg = wm.querySelector('.wm-svg'), world = wm.querySelector('.wm-world'), stage = wm.querySelector('.wm-stage'), pop = wm.querySelector('.wm-pop');
-    var pois = Array.prototype.slice.call(wm.querySelectorAll('.wm-poi')), labels = Array.prototype.slice.call(wm.querySelectorAll('.wm-label'));
+    var pois = Array.prototype.slice.call(wm.querySelectorAll('.wm-poi')), labels = Array.prototype.slice.call(wm.querySelectorAll('.wm-label')), subs = Array.prototype.slice.call(wm.querySelectorAll('.wm-sub'));
     function scale() { var r = svg.getBoundingClientRect(); var sc = Math.min(r.width / VW, r.height / VH) || 1; return { r: r, sc: sc, ox: (r.width - VW * sc) / 2, oy: (r.height - VH * sc) / 2 }; }
     function toSvg(cx, cy) { var s = scale(); return { x: (cx - s.r.left - s.ox) / s.sc, y: (cy - s.r.top - s.oy) / s.sc }; }
     function clamp() {
-      v.k = Math.max(1, Math.min(7, v.k));
+      v.k = Math.max(1, Math.min(MAXK, v.k));
       var minX = VW - VW * v.k, minY = VH - VH * v.k;
       v.x = Math.min(0, Math.max(minX, v.x)); v.y = Math.min(0, Math.max(minY, v.y));
     }
     function apply() {
       clamp();
       world.setAttribute('transform', 'translate(' + v.x.toFixed(2) + ',' + v.y.toFixed(2) + ') scale(' + v.k.toFixed(3) + ')');
-      var ms = 1 / Math.pow(v.k, 0.72) * (compact && v.k < 1.6 ? 0.8 : 1), ls = 1 / Math.pow(v.k, compact ? 0.8 : 0.55);
+      var ms = 1 / Math.pow(v.k, 0.5) * (compact && v.k < 1.6 ? 0.8 : 1), ls = 1 / Math.pow(v.k, compact ? 0.8 : 0.55);
       pois.forEach(function (g) { g.setAttribute('transform', 'translate(' + g.getAttribute('data-x') + ',' + g.getAttribute('data-y') + ') scale(' + ms.toFixed(3) + ')'); });
       labels.forEach(function (g) { g.setAttribute('transform', 'translate(' + g.getAttribute('data-lx') + ',' + g.getAttribute('data-ly') + ') scale(' + ls.toFixed(3) + ')'); });
+      var ss = 1 / Math.pow(v.k, 0.75);
+      subs.forEach(function (t) { t.setAttribute('transform', 'translate(' + t.getAttribute('data-lx') + ',' + t.getAttribute('data-ly') + ') scale(' + ss.toFixed(3) + ') translate(' + (-t.getAttribute('data-lx')) + ',' + (-t.getAttribute('data-ly')) + ')'); });
       wm.classList.toggle('zoomed', v.k > 1.6);
+      wm.classList.toggle('zoomed2', v.k > 2.6);
       placePop();
     }
-    function zoomAt(px, py, f) { var nk = Math.max(1, Math.min(7, v.k * f)); v.x = px - (px - v.x) * (nk / v.k); v.y = py - (py - v.y) * (nk / v.k); v.k = nk; apply(); }
+    function zoomAt(px, py, f) { var nk = Math.max(1, Math.min(MAXK, v.k * f)); v.x = px - (px - v.x) * (nk / v.k); v.y = py - (py - v.y) * (nk / v.k); v.k = nk; apply(); }
     function placePop() {
       if (!v.poi) { pop.hidden = true; return; }
       var g = wm.querySelector('.wm-poi[data-poi="' + cssEsc(v.poi) + '"]');
@@ -307,7 +318,7 @@
       var ids = Object.keys(pts), s = scale();
       if (ids.length >= 2 && pinch) {
         var a = pts[ids[0]], b = pts[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y);
-        var nk = Math.max(1, Math.min(7, pinch.k * d / pinch.d));
+        var nk = Math.max(1, Math.min(MAXK, pinch.k * d / pinch.d));
         v.x = pinch.m.x - (pinch.m.x - pinch.vx) * (nk / pinch.k); v.y = pinch.m.y - (pinch.m.y - pinch.vy) * (nk / pinch.k); v.k = nk; moved = true; apply();
       } else if (start) {
         var dx = e.clientX - start.x, dy = e.clientY - start.y;
@@ -354,20 +365,50 @@
       var z = e.target.closest('[data-wm-zoom]');
       if (z) { var m = z.getAttribute('data-wm-zoom'); if (m === 'reset') { v.x = 0; v.y = 0; v.k = 1; apply(); } else zoomCenter(m === 'in' ? 1.35 : 1 / 1.35); return; }
       if (e.target.closest('[data-wm-close]')) { select(null); return; }
+      var fb = e.target.closest('[data-wm-found]');
+      if (fb) { var fm = Object.assign({}, found(ctx)), fid = fb.getAttribute('data-wm-found'); if (fm[fid]) delete fm[fid]; else fm[fid] = true; pop.removeAttribute('data-for'); ctx.store.setSetting('poiFound', fm); return; }
+      if (e.target.closest('[data-wm-fs]')) { v.fs = !v.fs; wm.classList.toggle('wm-fs', v.fs); document.body.classList.toggle('map-fs', v.fs); apply(); return; }
+      var sr = e.target.closest('[data-wm-goto]');
+      if (sr) { focusPoint(sr.getAttribute('data-wm-goto')); wm.querySelector('.wm-results').hidden = true; return; }
       if (e.target.closest('[data-wm-toggle-layers]')) { var lp = wm.querySelector('.wm-layers-pop'); if (lp) { lp.hidden = !lp.hidden; v.layersOpen = !lp.hidden; } return; }
       var l = e.target.closest('[data-wm-layer]');
       if (l) { var L = getLayers(ctx); L[l.getAttribute('data-wm-layer')] = !L[l.getAttribute('data-wm-layer')]; ctx.store.setSetting('mapLayers', L); return; }
       var all = e.target.closest('[data-wm-all]');
       if (all) { var on = all.getAttribute('data-wm-all') === '1', L2 = {}; Object.keys(DEFAULT_LAYERS).forEach(function (k) { L2[k] = on; }); ctx.store.setSetting('mapLayers', L2); }
     });
+    function focusPoint(id) {
+      var q = positions(ctx.DATA, root.HK.POI)[id]; if (!q) return;
+      var g = wm.querySelector('.wm-poi[data-poi="' + cssEsc(id) + '"]');
+      if (!g) { // its layer is hidden: switch it on first
+        var p = poiById(ctx, id); if (!p) return;
+        var L = getLayers(ctx); L[p.type] = true; v.poi = id; v.k = Math.max(v.k, 4); v.x = VW / 2 - q.x * v.k; v.y = VH / 2 - q.y * v.k;
+        ctx.store.setSetting('mapLayers', L); return;
+      }
+      v.k = Math.max(v.k, 4); v.x = VW / 2 - q.x * v.k; v.y = VH / 2 - q.y * v.k; apply(); select(id);
+    }
+    wm._focusPoint = focusPoint;
+    var sIn = wm.querySelector('[data-wm-search]'), sRes = wm.querySelector('.wm-results');
+    function runSearch() {
+      var q = sIn.value.trim().toLowerCase(); v.q = q;
+      pois.forEach(function (g) { var p = poiById(ctx, g.getAttribute('data-poi')); var hit = q && p && (p.name + ' ' + p.note).toLowerCase().indexOf(q) >= 0; g.classList.toggle('hit', !!hit); g.classList.toggle('dim', !!q && !hit); });
+      if (q.length < 2) { sRes.hidden = true; return; }
+      var T = root.HK.POI.TYPES, list = allPois(ctx.DATA, root.HK.POI).filter(function (p) { return (p.name + ' ' + p.note).toLowerCase().indexOf(q) >= 0 && !(p.type === 'item' && isFound(ctx, p)); }).slice(0, 10);
+      sRes.innerHTML = list.length ? list.map(function (p) { return '<button type="button" data-wm-goto="' + esc(p.id) + '"><b>' + esc(p.name) + '</b><small>' + esc(T[p.type].one + ' · ' + (ctx.E.regionById[p.region] || {}).name) + '</small></button>'; }).join('') : '<div class="muted">No match</div>';
+      sRes.hidden = false;
+    }
+    sIn.addEventListener('input', runSearch);
+    sIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { var f = sRes.querySelector('[data-wm-goto]'); if (f) f.click(); } if (e.key === 'Escape') { sIn.value = ''; runSearch(); } });
+    var hf = wm.querySelector('[data-wm-hidefound]');
+    if (hf) hf.addEventListener('change', function () { ctx.store.setSetting('mapHideFound', hf.checked); });
+    if (v.fs) document.body.classList.add('map-fs');
     function zoomCenter(f) {
       var cx = (VW / 2 - v.x) / v.k, cy = (VH / 2 - v.y) / v.k; // world point at view centre
-      var nk = Math.max(1, Math.min(7, v.k * f));
+      var nk = Math.max(1, Math.min(MAXK, v.k * f));
       v.x = VW / 2 - cx * nk; v.y = VH / 2 - cy * nk; v.k = nk; apply();
     }
     if (v.layersOpen) { var lpop = wm.querySelector('.wm-layers-pop'); if (lpop) lpop.hidden = false; }
     wm._focusRegion = function (id) {
-      var b = bbox(id), k = Math.max(1, Math.min(4, Math.min(VW / (b.w + 80), VH / (b.h + 80))));
+      var b = bbox(id), k = Math.max(1, Math.min(5, Math.min(VW / (b.w + 120), VH / (b.h + 120))));
       v.k = k; v.x = VW / 2 - b.cx * k; v.y = VH / 2 - b.cy * k; apply();
     };
     wm.addEventListener('mouseleave', function () { wm.classList.remove('engaged'); });
@@ -378,8 +419,9 @@
     document.querySelectorAll('.wm[data-wm]').forEach(function (wm) { if (wm._placePop) wm._placePop(); });
   });
   function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
+  function focusPoi(scope, id) { scope.querySelectorAll('.wm[data-wm]').forEach(function (wm) { if (wm._focusPoint) wm._focusPoint(id); }); }
   function focusRegion(scope, id) { scope.querySelectorAll('.wm[data-wm]').forEach(function (wm) { if (wm._focusRegion) wm._focusRegion(id); }); }
 
   root.HK = root.HK || {};
-  root.HK.WorldMap = { html: html, hydrate: hydrate, focusRegion: focusRegion, allPois: allPois, positions: positions, SHAPES: SHAPES, DEFAULT_LAYERS: DEFAULT_LAYERS, getLayers: getLayers, VIEW: VIEW };
+  root.HK.WorldMap = { html: html, focusPoi: focusPoi, isFound: isFound, hydrate: hydrate, focusRegion: focusRegion, allPois: allPois, positions: positions, SHAPES: SHAPES, DEFAULT_LAYERS: DEFAULT_LAYERS, getLayers: getLayers, VIEW: VIEW };
 })(typeof window !== 'undefined' ? window : globalThis);

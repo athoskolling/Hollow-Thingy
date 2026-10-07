@@ -35,7 +35,7 @@
   var L = [];
   function P(region, type, name, note, opts) {
     opts = opts || {};
-    L.push({ id: region + ':' + type + ':' + L.length, region: region, type: type, name: name, note: note || '',
+    L.push({ id: region + '|' + name, region: region, type: type, name: name, note: note || '',
       cost: opts.cost || 0, sub: opts.sub || '', item: opts.item || null, wiki: opts.wiki || null });
   }
 

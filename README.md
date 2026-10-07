@@ -67,7 +67,10 @@ Nenhuma faixa da trilha oficial é incluída, baixada ou redistribuída. Navegad
 
 ## Mapa interativo
 
-`#/map` (e o painel do Dashboard): mapa **esquemático original** (não é o mapa oficial) com arrastar/zoom/pinça,
+`#/map` (e o painel do Dashboard): mapa **original redesenhado sala por sala** (`js/mapgeo.js`), seguindo a geografia
+real das áreas e sub-áreas (King's Pass, Soul Sanctum, Mantis Village, Distant Village, Palace Grounds…), mas sem copiar
+o mapa oficial nem o do MapGenie. Arrastar/zoom até 10×/pinça, busca de locais, tela cheia, “Mark as found” para
+benches/estações/vendedores (salvo no progresso) e “Hide found”,
 status por região (Completed / Current / Accessible / Locked) e camadas: Benches (50), Stag Stations (11),
 vendedores e serviços, bosses, Whispering Roots, Hot Springs, trams, Cornifer, Lifeblood Cocoons, NPCs, marcos e
 “itens que faltam”. Clique num marcador para ver detalhes e marcar o item. A região de cada ponto é exata; a posição

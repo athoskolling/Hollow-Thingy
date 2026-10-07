@@ -71,6 +71,7 @@
     list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
     close: 'M6 6l12 12M18 6 6 18',
     menu: 'M4 7h16M4 12h16M4 17h16',
+    expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
     quill: 'M20 4C12 5 7 10 5 19l2-1c1-3 3-5 6-6-1 0-2 0-3 .5C12 9 16 7 20 4z'
   };
   var FILLED = { play: 1 };

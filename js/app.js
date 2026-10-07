@@ -226,9 +226,9 @@
       (pctLabel(it) ? '<span class="pct">' + pctLabel(it) + '</span>' : '') +
       '<button class="icon-btn rr-go" data-action="open-item" data-id="' + it.id + '" aria-label="Details: ' + esc(it.name) + '">' + ico('chevron') + '</button></div>';
   }
-  function poiRow(p) {
-    var T = HK.POI.TYPES[p.type];
-    return '<div class="rrow poi"><span class="ti" style="--pc:' + T.color + '">' + ico(p.type === 'boss' ? 'skull' : p.type) + '</span>' +
+  function poiRow(p, focus) {
+    var T = HK.POI.TYPES[p.type], fnd = HK.WorldMap.isFound({ store: store, E: E }, p);
+    return '<div class="rrow poi' + (fnd ? ' done' : '') + '">' + (focus ? '<button class="icon-btn rr-go" data-action="map-poi" data-id="' + esc(p.id) + '" aria-label="Show on map">' + ico('target') + '</button>' : '') + '<span class="ti" style="--pc:' + T.color + '">' + ico(p.type === 'boss' ? 'skull' : p.type) + '</span>' +
       '<div class="rr-main static"><b>' + esc(p.name) + '</b><small>' + esc(T.one + (p.sub ? ' · ' + p.sub : '') + (p.cost ? ' · ' + p.cost + ' Geo' : '') + (p.note ? ' — ' + p.note : '')) + '</small></div>' +
       (p.item && byId[p.item] ? '<button class="icon-btn rr-go" data-action="open-item" data-id="' + p.item + '" aria-label="Details">' + ico('chevron') + '</button>' : '') + '</div>';
   }
@@ -578,7 +578,7 @@
   views.map = function () {
     ui.mapFor = 'full';
     var sel = ui.mapRegion && E.regionById[ui.mapRegion] ? ui.mapRegion : null;
-    var h = '<header class="page-head"><h1>World Map</h1><p class="lead">Drag to pan · scroll or pinch to zoom · tap a region or a marker. Benches, Stag Stations, vendors, bosses and more.</p></header>';
+    var h = '<header class="page-head"><h1>World Map</h1><p class="lead">Drag to pan · scroll or pinch to zoom · tap a region or a marker · search any place. Zoom in to see sub-areas. Mark benches, stations and vendors as found.</p></header>';
     h += '<div class="map-page"><section class="card map-full">' + HK.WorldMap.html(mapCtx(), 'full', {}) + '</section>';
     h += '<aside class="map-side">';
     if (!sel) {
@@ -602,7 +602,7 @@
         var l = pois.filter(function (x) { return x.type === t; });
         if (!l.length) return;
         h += '<h4 class="' + (L[t] ? '' : 'off') + '">' + esc(HK.POI.TYPES[t].label) + ' <span class="muted">' + l.length + '</span>' + (L[t] ? '' : ' <small>(layer hidden)</small>') + '</h4><div class="rp-list">' +
-          l.map(function (x) { return x.fromItem ? rrow(byId[x.item]) : poiRow(x); }).join('') + '</div>';
+          l.map(function (x) { return x.fromItem ? rrow(byId[x.item]) : poiRow(x, true); }).join('') + '</div>';
       });
       h += '</section>';
     }
@@ -988,6 +988,7 @@
     else if (name === 'trackers') html = views.trackers(arg);
     else if (views[name]) html = views[name]();
     else html = views.dashboard();
+    document.body.classList.remove('map-fs');
     view.innerHTML = html;
     HK.WorldMap.hydrate(view, mapCtx());
     if (ui.focusPending && name === 'map') { HK.WorldMap.focusRegion(view, ui.focusPending); ui.focusPending = null; }
@@ -1059,6 +1060,7 @@
       case 'scroll-objective': { var ob = document.getElementById('objective'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
       case 'map-region': ui.mapRegion = id; ui.focusPending = id; if (location.hash === '#/map') render(false); else location.hash = '#/map'; break;
       case 'map-focus': HK.WorldMap.focusRegion(view, id); break;
+      case 'map-poi': HK.WorldMap.focusPoi(view, id); window.scrollTo({ top: 0, behavior: 'smooth' }); break;
       case 'map-clear': ui.mapRegion = null; render(true); break;
       case 'map-reset-layers': store.setSetting('mapLayers', null); toast('Map layers reset'); break;
       case 'music-preview': if (music) { music.preview(id); setTimeout(function () { render(true); }, 300); } break;
