@@ -30,10 +30,13 @@ hollow-knight-companion/
 ├── css/style.css           visual Hallownest, temas por região, responsivo, prefers-reduced-motion
 ├── js/
 │   ├── data.js             BASE DE DADOS (regiões, estágios do roadmap, 225 itens, farms, marcos da Seer)
+│   ├── poi.js              pontos de interesse do mapa (benches, stags, vendedores, NPCs, springs…)
+│   ├── icons.js / art.js   ícones e ilustrações SVG originais (procedurais)
+│   ├── worldmap.js         mapa interativo esquemático
 │   ├── state.js            state manager único (localStorage, export/import JSON versionado, reset)
 │   ├── roadmap.js          engine: dependências, completion 112%, progresso por região, Next Objective
 │   ├── save-importer.js    leitor do save real do PC (user#.dat) — decodifica localmente
-│   ├── audio.js            player de música ambiente
+│   ├── audio.js            trilha por região (arquivos seus + ambiência original gerada)
 │   └── app.js              UI: views, trackers, Save Editor, busca, filtros, partículas
 ├── assets/audio/           coloque aqui o seu ambience.mp3
 ├── assets/icons/           favicon
@@ -42,22 +45,34 @@ hollow-knight-companion/
 │   └── make_test_save.py   gera um user.dat sintético para testar o importador
 └── tests/
     ├── run-node-tests.js   testes unitários (engine, estado, importador, AES)
-    ├── e2e_functional.py   56 checagens no navegador (Playwright)
+    ├── e2e_functional.py   69 checagens no navegador (Playwright)
     ├── e2e_smoke.py        screenshots desktop/mobile + erros de console
     └── fixtures/user-test.dat
 ```
 
-## Como adicionar música
+## Trilha sonora por região
 
-Coloque **o seu próprio arquivo, obtido legalmente**, em:
+O player (canto inferior esquerdo; no celular, barra flutuante embaixo) toca uma trilha **por região** e troca
+sozinho quando você muda de região, abre uma região ou seleciona uma no mapa (botão 📍 “follow”).
+Ordem de prioridade para cada região:
 
-```
-assets/audio/ambience.mp3
-```
+1. arquivo **seu** carregado na página **Soundtrack** para aquela região (fica só no IndexedDB do seu navegador — nunca é enviado nem publicado; funciona no celular);
+2. arquivo seu carregado como “All regions”;
+3. `assets/audio/regions/<id-da-região>.mp3` (cópia local sua, ignorada pelo git);
+4. `assets/audio/ambience.mp3` (cópia local sua, ignorada pelo git);
+5. **ambiência original gerada no navegador** (Web Audio): escala, andamento, timbre e textura diferentes por região
+   (chuva na City of Tears, vento nos Howling Cliffs, gotas nos Royal Waterways, caixinha de música no White Palace…).
 
-O companion não baixa nem redistribui a trilha oficial. Como navegadores bloqueiam autoplay, clique em
-**“♫ Click to awaken Hallownest”** no topo. Volume, mute e loop ficam salvos. Sem arquivo, o botão mostra
-“Add your music” e nada quebra.
+Nenhuma faixa da trilha oficial é incluída, baixada ou redistribuída. Navegadores bloqueiam autoplay: clique ▶.
+
+## Mapa interativo
+
+`#/map` (e o painel do Dashboard): mapa **esquemático original** (não é o mapa oficial) com arrastar/zoom/pinça,
+status por região (Completed / Current / Accessible / Locked) e camadas: Benches (50), Stag Stations (11),
+vendedores e serviços, bosses, Whispering Roots, Hot Springs, trams, Cornifer, Lifeblood Cocoons, NPCs, marcos e
+“itens que faltam”. Clique num marcador para ver detalhes e marcar o item. A região de cada ponto é exata; a posição
+dentro da região é aproximada. Dados em `js/poi.js` (fontes: hollowknight.wiki — Bench, Save Points, Stag Station,
+Cornifer, Lifeblood Cocoon, Hot Spring, Tram e páginas de área).
 
 ## Como alterar os dados
 
@@ -140,7 +155,7 @@ node tools/audit.js                 # auditoria 112%
 node tests/run-node-tests.js        # 17 testes unitários
 python3 tools/make_test_save.py     # (re)gera tests/fixtures/user-test.dat — precisa de `cryptography`
 python3 -m http.server 8765 &       # e depois:
-python3 tests/e2e_functional.py     # 56 checagens no navegador — precisa de `playwright` + Chromium
+python3 tests/e2e_functional.py     # 69 checagens no navegador — precisa de `playwright` + Chromium
 ```
 
 ## Limitações conhecidas (V1)

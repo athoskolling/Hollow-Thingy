@@ -1,0 +1,4 @@
+Optional, local only (git-ignored): put YOUR OWN legally obtained files here named after the region id,
+e.g. crystal-peak.mp3, city-of-tears.mp3, greenpath.mp3 ...
+On the published site use the Soundtrack page instead: files you load there stay in your browser only.
+Without files, each region plays an original ambience generated in the browser.

@@ -176,6 +176,37 @@ with sync_playwright() as p:
     page.fill('#music input[data-music=volume]', '0.2'); page.locator('#music input[data-music=volume]').dispatch_event('input')
     check('volume saved', abs(js(page, "HKApp.store.get().music.volume") - 0.2) < 1e-6)
 
+    # --- V2: interactive map, region panel, per-region soundtrack
+    check('music uses the original region ambience', js(page, "HKApp.music.state().source") == 'gen')
+    page.goto(BASE + '#/map'); page.wait_for_timeout(400)
+    check('map draws 18 regions', page.locator('.wm-reg').count() == 18)
+    nb = page.locator('.wm-poi.t-bench').count()
+    check('map shows 48 bench markers (+2 trams)', nb == 48, nb)
+    check('map shows 11 stag stations', page.locator('.wm-poi.t-stag').count() == 11)
+    check('map shows vendors and bosses', page.locator('.wm-poi.t-vendor').count() >= 15 and page.locator('.wm-poi.t-boss').count() >= 40)
+    page.click('[data-wm-layer=bench]'); page.wait_for_timeout(250)
+    check('layer toggle hides benches', page.locator('.wm-poi.t-bench').count() == 0)
+    page.click('[data-wm-layer=bench]'); page.wait_for_timeout(250)
+    page.locator('.wm-reg[data-region=deepnest] .rf').first.click(); page.wait_for_timeout(300)
+    check('region click opens side panel', 'DEEPNEST' in page.locator('.map-side .rp-title').inner_text().upper())
+    check('music follows the selected region', js(page, "HKApp.music.state().region") == 'deepnest')
+    page.locator('.wm-poi[data-poi="item:nosk"]').click(); page.wait_for_timeout(250)
+    check('marker popover shows boss', 'Nosk' in page.locator('.wm-pop').inner_text())
+    page.goto(BASE + '#/dashboard'); page.wait_for_timeout(300)
+    page.click('.rp-tab[data-id=bosses]'); page.wait_for_timeout(200)
+    check('region panel bosses tab', page.locator('.rpanel .rrow').count() >= 1)
+    page.goto(BASE + '#/soundtrack'); page.wait_for_timeout(300)
+    check('soundtrack lists 18 regions + fallback', page.locator('.track').count() == 19)
+    wav = os.path.join(HERE, 'fixtures', 'tone.wav')
+    if not os.path.exists(wav):
+        import wave, struct, math
+        w = wave.open(wav, 'w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000)
+        w.writeframes(b''.join(struct.pack('<h', int(3000 * math.sin(i / 8000 * 2 * math.pi * 440))) for i in range(8000))); w.close()
+    page.set_input_files('input[data-action=music-file][data-id=greenpath]', wav); page.wait_for_timeout(600)
+    check('own file stored for a region', 'tone.wav' in page.locator('.track:has-text("Greenpath")').inner_text())
+    page.click('[data-action=music-preview][data-id=greenpath]'); page.wait_for_timeout(900)
+    check('region plays your own file', js(page, "HKApp.music.state().source") == 'file', js(page, "HKApp.music.state()"))
+
     # --- mobile menu
     m = b.new_context(viewport={'width': 390, 'height': 844}).new_page()
     m.on('pageerror', lambda e: errors.append('mobile pageerror: ' + str(e)))
