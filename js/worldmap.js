@@ -141,6 +141,8 @@
     h += '<rect x="-2000" y="-2000" width="5000" height="5000" fill="transparent" class="wm-bg"/>';
     h += '<g class="wm-world">';
     h += '<rect x="0" y="0" width="' + VW + '" height="' + VH + '" fill="url(#wm-vig)" pointer-events="none"/>';
+    var bg = MapImage.url(), bo = MapImage.opts(ctx);
+    if (bg) h += '<image class="wm-bgimg" href="' + bg + '" x="' + bo.x + '" y="' + bo.y + '" width="' + (bo.w * bo.sx) + '" height="' + bo.h + '" opacity="' + bo.opacity + '" preserveAspectRatio="none" pointer-events="none"/>';
     // dream realm frame
     h += '<g class="wm-dream" pointer-events="none"><rect x="1325" y="1478" width="590" height="140" rx="20"/><text x="1620" y="1468">DREAM REALM</text></g>';
     // regions
@@ -214,7 +216,8 @@
     opts = opts || {};
     var I = root.HK.Icons;
     var v = VIEW[key] || {}, st = ctx.store.get().settings || {};
-    var h = '<div class="wm' + (opts.compact ? ' compact' : ' full') + (v.fs ? ' wm-fs' : '') + '" data-wm="' + key + '">';
+    var mo = MapImage.opts(ctx);
+    var h = '<div class="wm' + (opts.compact ? ' compact' : ' full') + (v.fs ? ' wm-fs' : '') + (MapImage.url() ? ' has-bg' + (mo.rooms ? '' : ' no-rooms') : '') + '" data-wm="' + key + '">';
     h += '<div class="wm-stage">' + svgMarkup(ctx, key) +
       '<div class="wm-search"><input type="search" placeholder="Search the map…" value="' + esc(v.q || '') + '" data-wm-search aria-label="Search markers on the map"><div class="wm-results" hidden></div></div>' +
       '<div class="wm-zoom"><button type="button" class="icon-btn" data-wm-zoom="in" aria-label="Zoom in">' + I.svg('plus') + '</button>' +
@@ -422,6 +425,41 @@
   function focusPoi(scope, id) { scope.querySelectorAll('.wm[data-wm]').forEach(function (wm) { if (wm._focusPoint) wm._focusPoint(id); }); }
   function focusRegion(scope, id) { scope.querySelectorAll('.wm[data-wm]').forEach(function (wm) { if (wm._focusRegion) wm._focusRegion(id); }); }
 
+  /* ----------------------------- your own map image ----------------------------- */
+  // An image YOU load stays in this browser (IndexedDB). Nothing is uploaded or published.
+  var MapImage = (function () {
+    var url = null, nat = null, DB = 'hk-companion-map';
+    function db(mode, fn) {
+      return new Promise(function (res, rej) {
+        if (!root.indexedDB) { rej(new Error('IndexedDB not available')); return; }
+        var rq = root.indexedDB.open(DB, 1);
+        rq.onupgradeneeded = function () { rq.result.createObjectStore('img'); };
+        rq.onerror = function () { rej(rq.error); };
+        rq.onsuccess = function () { var d = rq.result, tx = d.transaction('img', mode), r = fn(tx.objectStore('img')); tx.oncomplete = function () { d.close(); res(r && r.result); }; tx.onerror = function () { d.close(); rej(tx.error); }; };
+      });
+    }
+    function use(blob) {
+      return new Promise(function (res) {
+        if (url) { try { URL.revokeObjectURL(url); } catch (e) { /* noop */ } }
+        url = blob ? URL.createObjectURL(blob) : null; nat = null;
+        if (!url) { res(); return; }
+        var im = new Image(); im.onload = function () { nat = { w: im.naturalWidth, h: im.naturalHeight }; res(); }; im.onerror = function () { res(); }; im.src = url;
+      });
+    }
+    return {
+      load: function () { return db('readonly', function (st) { return st.get('bg'); }).then(function (rec) { return use(rec && rec.blob); }, function () { /* no db */ }); },
+      set: function (file) { return db('readwrite', function (st) { st.put({ name: file.name, blob: file }, 'bg'); }).then(function () { return use(file); }); },
+      clear: function () { return db('readwrite', function (st) { st.delete('bg'); }).then(function () { return use(null); }); },
+      url: function () { return url; },
+      natural: function () { return nat; },
+      opts: function (ctx) {
+        var o = ((ctx.store.get().settings || {}).mapImage) || {};
+        var w = VW * (o.scale || 1), h = nat ? w * nat.h / nat.w : VH;
+        return { x: o.x || 0, y: o.y || 0, w: w, h: h, sx: o.stretch || 1, opacity: o.opacity == null ? 0.9 : o.opacity, rooms: o.rooms !== false, scale: o.scale || 1, stretch: o.stretch || 1 };
+      }
+    };
+  })();
+
   root.HK = root.HK || {};
-  root.HK.WorldMap = { html: html, focusPoi: focusPoi, isFound: isFound, hydrate: hydrate, focusRegion: focusRegion, allPois: allPois, positions: positions, SHAPES: SHAPES, DEFAULT_LAYERS: DEFAULT_LAYERS, getLayers: getLayers, VIEW: VIEW };
+  root.HK.WorldMap = { MapImage: MapImage, html: html, focusPoi: focusPoi, isFound: isFound, hydrate: hydrate, focusRegion: focusRegion, allPois: allPois, positions: positions, SHAPES: SHAPES, DEFAULT_LAYERS: DEFAULT_LAYERS, getLayers: getLayers, VIEW: VIEW };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -580,7 +580,7 @@
     var sel = ui.mapRegion && E.regionById[ui.mapRegion] ? ui.mapRegion : null;
     var h = '<header class="page-head"><h1>World Map</h1><p class="lead">Drag to pan · scroll or pinch to zoom · tap a region or a marker · search any place. Zoom in to see sub-areas. Mark benches, stations and vendors as found.</p></header>';
     h += '<div class="map-page"><section class="card map-full">' + HK.WorldMap.html(mapCtx(), 'full', {}) + '</section>';
-    h += '<aside class="map-side">';
+    h += '<aside class="map-side">' + mapImageCard();
     if (!sel) {
       var T = HK.POI.TYPES;
       h += '<section class="card"><h3>Hallownest at a glance</h3><ul class="glance">' +
@@ -609,6 +609,25 @@
     h += '</aside></div>';
     return h;
   };
+
+  function mapImageCard() {
+    var MI = HK.WorldMap.MapImage, o = MI.opts({ store: store }), has = !!MI.url();
+    function rng(k, label, min, max, step, val) {
+      return '<label class="mi-rng"><span>' + label + ' <b data-mi-val="' + k + '">' + val + '</b></span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-action="map-img" data-key="' + k + '"></label>';
+    }
+    var h = '<section class="card"><h3>' + ico('map') + ' Your map image</h3>';
+    h += '<p class="small muted">Load a full Hallownest map image you have (for example, screenshots of your own in-game map). It stays <b>only in this browser on this device</b> — it is never uploaded or added to the site. The interactive regions and markers are drawn on top of it.</p>';
+    h += '<div class="btn-row"><label class="btn small file-btn">' + ico('upload') + ' ' + (has ? 'Replace image' : 'Load image') + '<input type="file" accept="image/*" data-action="map-img-file" hidden></label>' +
+      (has ? '<button class="btn small danger" data-action="map-img-clear">' + ico('trash') + ' Remove</button>' : '') + '</div>';
+    if (has) {
+      h += '<p class="small muted">Align it with the outlines: zoom out to see the whole map, then adjust.</p><div class="mi-ctrl">' +
+        rng('opacity', 'Opacity', 0.1, 1, 0.05, o.opacity) + rng('scale', 'Size', 0.5, 1.6, 0.005, o.scale) + rng('stretch', 'Width stretch', 0.7, 1.4, 0.005, o.stretch) +
+        rng('x', 'Move left/right', -700, 700, 2, o.x) + rng('y', 'Move up/down', -700, 700, 2, o.y) + '</div>' +
+        '<label class="toggle small"><input type="checkbox" data-action="map-img-rooms"' + (o.rooms ? ' checked' : '') + '> Show my room outlines</label>' +
+        '<button class="btn tiny ghost" data-action="map-img-reset">Reset alignment</button>';
+    }
+    return h + '</section>';
+  }
 
   /* ------------------------------ soundtrack page ------------------------------ */
   views.soundtrack = function () {
@@ -1060,6 +1079,8 @@
       case 'scroll-objective': { var ob = document.getElementById('objective'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
       case 'map-region': ui.mapRegion = id; ui.focusPending = id; if (location.hash === '#/map') render(false); else location.hash = '#/map'; break;
       case 'map-focus': HK.WorldMap.focusRegion(view, id); break;
+      case 'map-img-clear': if (confirm('Remove your map image from this browser?')) HK.WorldMap.MapImage.clear().then(function () { render(true); }); break;
+      case 'map-img-reset': store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, { x: 0, y: 0, scale: 1, stretch: 1 })); break;
       case 'map-poi': HK.WorldMap.focusPoi(view, id); window.scrollTo({ top: 0, behavior: 'smooth' }); break;
       case 'map-clear': ui.mapRegion = null; render(true); break;
       case 'map-reset-layers': store.setSetting('mapLayers', null); toast('Map layers reset'); break;
@@ -1083,6 +1104,13 @@
     if (a === 'note') store.setNote(id, t.value);
     if (a === 'spell') { var v = Number(t.value); var m = {}; m[t.getAttribute('data-a')] = v >= 1; m[t.getAttribute('data-b')] = v >= 2; store.setChecks(m, 'spell'); }
     if (a === 'nail') { var lv = Number(t.value), mm = {}; for (var n = 1; n <= 4; n++) mm['nail-' + n] = n <= lv; store.setChecks(mm, 'nail'); }
+    if (a === 'map-img-file') {
+      var mf = t.files && t.files[0]; if (!mf) return;
+      HK.WorldMap.MapImage.set(mf).then(function () { toast('🗺 Map image loaded — only on this device', 'ok'); render(true); }).catch(function (err) { alert('Could not store the image in this browser: ' + (err && err.message || err)); });
+      t.value = '';
+    }
+    if (a === 'map-img') store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, (function () { var o = {}; o[t.getAttribute('data-key')] = Number(t.value); return o; })()));
+    if (a === 'map-img-rooms') store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, { rooms: t.checked }));
     if (a === 'music-file') {
       var f = t.files && t.files[0]; if (!f || !music) return;
       if (f.type && f.type.indexOf('audio') !== 0) { toast('That does not look like an audio file.', 'warn'); return; }
@@ -1103,6 +1131,13 @@
     });
   });
   document.addEventListener('input', function (e) {
+    if (e.target.getAttribute('data-action') === 'map-img') {
+      var k = e.target.getAttribute('data-key'), val = Number(e.target.value), cur = Object.assign({}, st().settings.mapImage || {}); cur[k] = val;
+      var o = HK.WorldMap.MapImage.opts({ store: { get: function () { return { settings: { mapImage: cur } }; } } });
+      view.querySelectorAll('.wm-bgimg').forEach(function (im) { im.setAttribute('x', o.x); im.setAttribute('y', o.y); im.setAttribute('width', o.w * o.sx); im.setAttribute('height', o.h); im.setAttribute('opacity', o.opacity); });
+      var lab = view.querySelector('[data-mi-val="' + k + '"]'); if (lab) lab.textContent = val;
+      return;
+    }
     if (e.target.getAttribute('data-action') === 'local-search') {
       ui.query = e.target.value; var pos = e.target.selectionStart; render(true);
       var s2 = view.querySelector('.search-local'); if (s2) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (x) { /* noop */ } }
@@ -1173,6 +1208,7 @@
   document.querySelectorAll('i.ni[data-icon]').forEach(function (n) { n.outerHTML = HK.Icons.svg(n.getAttribute('data-icon'), n.className); });
   music = HK.Music.init(store, document.getElementById('music'), document.getElementById('ambience'), toast);
   music.ready.then(function () { if (lastRoute && lastRoute.name === 'soundtrack') render(true); });
+  HK.WorldMap.MapImage.load().then(function () { if (HK.WorldMap.MapImage.url()) render(true); });
   var audit = runAudit();
   if (audit.errors.length) console.error('[HK] 112% audit FAILED', audit.errors); else console.info('[HK] 112% audit passed — total', audit.total);
   particles();

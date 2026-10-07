@@ -788,3 +788,15 @@ body.map-fs { overflow: hidden; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   #particles { display: none; }
 }
+
+/* your own map image */
+.wm.has-bg .wm-reg .rf { fill: rgba(0,0,0,.001); }
+.wm.has-bg .wm-reg .rh { display: none; }
+.wm.has-bg .wm-reg:hover .rf { fill: color-mix(in srgb, var(--c) 18%, transparent); }
+.wm.has-bg .wm-reg .ro { stroke-opacity: .55; stroke-width: 4; }
+.wm.has-bg.no-rooms .wm-reg .ro { stroke-opacity: 0; }
+.wm.has-bg.no-rooms .wm-reg.sel .ro, .wm.has-bg.no-rooms .wm-reg.st-current .ro { stroke-opacity: .5; }
+.mi-ctrl { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.mi-rng { display: flex; flex-direction: column; font-size: .85rem; color: var(--muted); }
+.mi-rng b { color: var(--white); font-weight: 600; }
+.mi-rng input { accent-color: var(--soul-2); }
