@@ -352,7 +352,7 @@
     h += '<div class="dash">';
     h += '<div class="dash-main">';
     // hero
-    h += '<section class="hero">' + HK.Art.hero() + '<div class="hero-text"><h1>WELCOME BACK, LITTLE KNIGHT</h1><p>“In the end, what’s left? A shadow, a name…<br>and the quiet echo of a forgotten kingdom.”</p></div></section>';
+    h += '<section class="hero">' + heroArt() + '<div class="hero-text"><h1>WELCOME BACK, LITTLE KNIGHT</h1><p>“In the end, what’s left? A shadow, a name…<br>and the quiet echo of a forgotten kingdom.”</p></div></section>';
     // stat cards
     h += '<div class="stat-row">';
     h += '<section class="card stat-pair"><div class="stat"><span class="st-l">Completion</span><span class="st-v"><b>' + c.value + '%</b> / 112%</span>' + bar(c.value / 112 * 100) + '</div>' +
@@ -611,22 +611,56 @@
   };
 
   function mapImageCard() {
-    var MI = HK.WorldMap.MapImage, o = MI.opts({ store: store }), has = !!MI.url();
+    var MI = HK.WorldMap.Images, o = MI.opts({ store: store }), has = !!MI.url('bg'), cal = MI.calibrated(), art = !!MI.url('art'), S = st().settings;
     function rng(k, label, min, max, step, val) {
       return '<label class="mi-rng"><span>' + label + ' <b data-mi-val="' + k + '">' + val + '</b></span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-action="map-img" data-key="' + k + '"></label>';
     }
-    var h = '<section class="card"><h3>' + ico('map') + ' Your map image</h3>';
-    h += '<p class="small muted">Load a full Hallownest map image you have (for example, screenshots of your own in-game map). It stays <b>only in this browser on this device</b> — it is never uploaded or added to the site. The interactive regions and markers are drawn on top of it.</p>';
-    h += '<div class="btn-row"><label class="btn small file-btn">' + ico('upload') + ' ' + (has ? 'Replace image' : 'Load image') + '<input type="file" accept="image/*" data-action="map-img-file" hidden></label>' +
-      (has ? '<button class="btn small danger" data-action="map-img-clear">' + ico('trash') + ' Remove</button>' : '') + '</div>';
-    if (has) {
-      h += '<p class="small muted">Align it with the outlines: zoom out to see the whole map, then adjust.</p><div class="mi-ctrl">' +
+    var h = '<section class="card img-card"><h3>' + ico('map') + ' Your images</h3>';
+    h += '<p class="small muted">Images you load stay <b>only in this browser on this device</b> — they are never uploaded or added to the site.</p>';
+    // detailed map
+    h += '<div class="img-slot"><div class="img-slot-head"><b>Detailed map</b>' + (has ? (cal ? '<span class="badge ok-b">✓ calibrated</span>' : '<span class="badge">manual alignment</span>') : '') + '</div>' +
+      (has ? '<small class="muted">' + esc(MI.name('bg')) + '</small>' : '<small class="muted">A full annotated map of Hallownest. A 4712×3500 layout (any resolution with the same proportions) lines up automatically.</small>') +
+      '<div class="btn-row"><label class="btn small file-btn">' + ico('upload') + ' ' + (has ? 'Replace' : 'Load map image') + '<input type="file" accept="image/*" data-action="map-img-file" hidden></label>' +
+      (has ? '<button class="btn small danger" data-action="map-img-clear" data-id="bg">' + ico('trash') + ' Remove</button>' : '') + '</div>';
+    if (has && !cal) {
+      h += '<p class="small muted">This image has a different layout, so it is shown under the clean map — align it by hand:</p><div class="mi-ctrl">' +
         rng('opacity', 'Opacity', 0.1, 1, 0.05, o.opacity) + rng('scale', 'Size', 0.5, 1.6, 0.005, o.scale) + rng('stretch', 'Width stretch', 0.7, 1.4, 0.005, o.stretch) +
         rng('x', 'Move left/right', -700, 700, 2, o.x) + rng('y', 'Move up/down', -700, 700, 2, o.y) + '</div>' +
-        '<label class="toggle small"><input type="checkbox" data-action="map-img-rooms"' + (o.rooms ? ' checked' : '') + '> Show my room outlines</label>' +
+        '<label class="toggle small"><input type="checkbox" data-action="map-img-rooms"' + (o.rooms ? ' checked' : '') + '> Show my room outlines</label> ' +
         '<button class="btn tiny ghost" data-action="map-img-reset">Reset alignment</button>';
     }
+    h += '</div>';
+    // art
+    h += '<div class="img-slot"><div class="img-slot-head"><b>Map of Hallownest art</b></div>' +
+      (art ? '<small class="muted">' + esc(MI.name('art')) + '</small>' : '<small class="muted">An illustration to decorate the site (page background and dashboard banner).</small>') +
+      '<div class="btn-row"><label class="btn small file-btn">' + ico('upload') + ' ' + (art ? 'Replace' : 'Load art image') + '<input type="file" accept="image/*" data-action="art-img-file" hidden></label>' +
+      (art ? '<button class="btn small" data-action="art-view">' + ico('expand') + ' View</button><button class="btn small danger" data-action="map-img-clear" data-id="art">' + ico('trash') + '</button>' : '') + '</div>';
+    if (art) h += '<div class="settings small"><label class="toggle"><input type="checkbox" data-action="setting" data-key="artBg"' + (S.artBg !== false ? ' checked' : '') + '> Use as page background</label>' +
+      '<label class="toggle"><input type="checkbox" data-action="setting" data-key="artHero"' + (S.artHero !== false ? ' checked' : '') + '> Use in the dashboard banner</label></div>';
+    h += '</div>';
     return h + '</section>';
+  }
+  function applyArt() {
+    var MI = HK.WorldMap.Images, u = MI.url('art'), S = st().settings;
+    var bg = !!u && S.artBg !== false;
+    document.body.classList.toggle('art-bg', bg);
+    var layer = document.getElementById('artLayer');
+    if (bg) {
+      if (!layer) { layer = document.createElement('div'); layer.id = 'artLayer'; layer.setAttribute('aria-hidden', 'true'); document.body.insertBefore(layer, document.body.firstChild); }
+      if (layer.getAttribute('data-u') !== u) { layer.style.backgroundImage = 'url("' + u + '")'; layer.setAttribute('data-u', u); }
+    } else if (layer) layer.remove();
+  }
+  function heroArt() {
+    var u = HK.WorldMap.Images.url('art');
+    return u && st().settings.artHero !== false ? '<img class="hero-img" src="' + u + '" alt="">' : HK.Art.hero();
+  }
+  function storeImage(slot, f) {
+    var MI = HK.WorldMap.Images;
+    return MI.set(slot, f).then(function () {
+      if (slot === 'bg') { store.setSetting('mapBase', 'image'); toast(MI.calibrated() ? '🗺 Detailed map loaded and calibrated — only on this device' : '🗺 Map image loaded — align it in “Your images”', 'ok'); }
+      else { toast('🖼 Art loaded — only on this device', 'ok'); }
+      render(true);
+    }).catch(function (err) { alert('Could not store the image in this browser: ' + (err && err.message || err)); });
   }
 
   /* ------------------------------ soundtrack page ------------------------------ */
@@ -658,6 +692,7 @@
     h += '<section class="card"><h3>Settings</h3><div class="settings">' +
       setting('spoilers', 'Spoiler protection (blur locations & instructions until hovered/tapped)') +
       setting('compact', 'Compact lists') + setting('hideOptional', 'Hide optional items in the checklist') + setting('hideDone', 'Hide completed items in the checklist') + '</div></section>';
+    h += mapImageCard();
     h += '<section class="card"><h3>Tools</h3><div class="btn-row">' +
       '<button class="btn" data-action="open-editor">' + ico('edit') + ' Update my save</button>' +
       '<a class="btn" href="#/save">' + ico('save') + ' Import save / backup</a>' +
@@ -1008,6 +1043,7 @@
     else if (views[name]) html = views[name]();
     else html = views.dashboard();
     document.body.classList.remove('map-fs');
+    applyArt();
     view.innerHTML = html;
     HK.WorldMap.hydrate(view, mapCtx());
     if (ui.focusPending && name === 'map') { HK.WorldMap.focusRegion(view, ui.focusPending); ui.focusPending = null; }
@@ -1079,7 +1115,9 @@
       case 'scroll-objective': { var ob = document.getElementById('objective'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
       case 'map-region': ui.mapRegion = id; ui.focusPending = id; if (location.hash === '#/map') render(false); else location.hash = '#/map'; break;
       case 'map-focus': HK.WorldMap.focusRegion(view, id); break;
-      case 'map-img-clear': if (confirm('Remove your map image from this browser?')) HK.WorldMap.MapImage.clear().then(function () { render(true); }); break;
+      case 'map-img-clear': if (confirm('Remove this image from this browser?')) HK.WorldMap.Images.clear(id || 'bg').then(function () { render(true); }); break;
+      case 'art-view': { var au = HK.WorldMap.Images.url('art'); if (au) openModal('Map of Hallownest', '<div class="art-view" data-action="art-zoom"><img src="' + au + '" alt="Map of Hallownest (your image)"></div><p class="muted small">Tap the image to zoom. Your own image — shown only on this device.</p>', 'art'); break; }
+      case 'art-zoom': t.classList.toggle('zoom'); break;
       case 'map-img-reset': store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, { x: 0, y: 0, scale: 1, stretch: 1 })); break;
       case 'map-poi': HK.WorldMap.focusPoi(view, id); window.scrollTo({ top: 0, behavior: 'smooth' }); break;
       case 'map-clear': ui.mapRegion = null; render(true); break;
@@ -1104,10 +1142,9 @@
     if (a === 'note') store.setNote(id, t.value);
     if (a === 'spell') { var v = Number(t.value); var m = {}; m[t.getAttribute('data-a')] = v >= 1; m[t.getAttribute('data-b')] = v >= 2; store.setChecks(m, 'spell'); }
     if (a === 'nail') { var lv = Number(t.value), mm = {}; for (var n = 1; n <= 4; n++) mm['nail-' + n] = n <= lv; store.setChecks(mm, 'nail'); }
-    if (a === 'map-img-file') {
+    if (a === 'map-img-file' || a === 'art-img-file') {
       var mf = t.files && t.files[0]; if (!mf) return;
-      HK.WorldMap.MapImage.set(mf).then(function () { toast('🗺 Map image loaded — only on this device', 'ok'); render(true); }).catch(function (err) { alert('Could not store the image in this browser: ' + (err && err.message || err)); });
-      t.value = '';
+      storeImage(a === 'art-img-file' ? 'art' : 'bg', mf); t.value = '';
     }
     if (a === 'map-img') store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, (function () { var o = {}; o[t.getAttribute('data-key')] = Number(t.value); return o; })()));
     if (a === 'map-img-rooms') store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, { rooms: t.checked }));
@@ -1208,7 +1245,7 @@
   document.querySelectorAll('i.ni[data-icon]').forEach(function (n) { n.outerHTML = HK.Icons.svg(n.getAttribute('data-icon'), n.className); });
   music = HK.Music.init(store, document.getElementById('music'), document.getElementById('ambience'), toast);
   music.ready.then(function () { if (lastRoute && lastRoute.name === 'soundtrack') render(true); });
-  HK.WorldMap.MapImage.load().then(function () { if (HK.WorldMap.MapImage.url()) render(true); });
+  HK.WorldMap.Images.load().then(function () { if (HK.WorldMap.Images.url('bg') || HK.WorldMap.Images.url('art')) render(true); });
   var audit = runAudit();
   if (audit.errors.length) console.error('[HK] 112% audit FAILED', audit.errors); else console.info('[HK] 112% audit passed — total', audit.total);
   particles();

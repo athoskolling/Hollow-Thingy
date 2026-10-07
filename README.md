@@ -50,6 +50,20 @@ hollow-knight-companion/
     └── fixtures/user-test.dat
 ```
 
+## Mapa detalhado e arte (imagens suas)
+
+Em **World Map → Your images** (ou Tools & Settings):
+
+- **Detailed map** — carregue uma imagem completa do mapa. Se ela tiver o layout 4712×3500 (mesma proporção, qualquer
+  resolução), tudo é calibrado automaticamente (`js/mapimg.js` guarda só números: áreas clicáveis, âncoras e a posição de
+  benches, stag stations, trams, roots, cocoons, hot springs e 42 grubs, obtidas casando os ícones da legenda da imagem).
+  Outras imagens podem ser alinhadas à mão.
+- Alterne **Clean** (mapa redesenhado) / **Detailed** (sua imagem) e use os atalhos **Everything · Stations · Benches ·
+  Vendors · Bosses · Collectibles · Image only**.
+- **Map of Hallownest art** — uma ilustração sua usada como fundo da página e/ou banner do Dashboard, com visualizador.
+
+As imagens ficam só no IndexedDB do seu navegador; nunca vão para o repositório.
+
 ## Trilha sonora por região
 
 O player (canto inferior esquerdo; no celular, barra flutuante embaixo) toca uma trilha **por região** e troca

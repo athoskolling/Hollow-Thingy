@@ -29,6 +29,7 @@
     cornifer: { label: 'Cornifer (maps)',  one: 'Cornifer',         color: '#e6e1d3' },
     cocoon:   { label: 'Lifeblood Cocoons', one: 'Lifeblood Cocoon', color: '#6fc8ff' },
     landmark: { label: 'Landmarks & gates', one: 'Landmark',        color: '#b9c3d6' },
+    grub:     { label: 'Grubs',            one: 'Grub',             color: '#9be37a' },
     item:     { label: 'Items left (checklist)', one: 'Item',       color: '#8fe0b4' }
   };
 
