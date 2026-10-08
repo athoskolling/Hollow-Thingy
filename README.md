@@ -30,6 +30,7 @@ hollow-knight-companion/
 ├── css/style.css           visual Hallownest, temas por região, responsivo, prefers-reduced-motion
 ├── js/
 │   ├── data.js             BASE DE DADOS (regiões, estágios do roadmap, 225 itens, farms, marcos da Seer)
+│   ├── guide.js            guia de bosses (HP, ataques, dicas), árvores de Essence e itens perdíveis — cada entrada com link da Wiki
 │   ├── poi.js              pontos de interesse por região (benches, stags, vendedores, NPCs, springs…)
 │   ├── icons.js / art.js   ícones e ilustrações SVG originais (procedurais)
 │   ├── sync.js             sincronização opcional entre aparelhos (Gist privado)
@@ -45,7 +46,7 @@ hollow-knight-companion/
 │   └── make_test_save.py   gera um user.dat sintético para testar o importador
 └── tests/
     ├── run-node-tests.js   testes unitários (engine, estado, importador, AES)
-    ├── e2e_functional.py   69 checagens no navegador (Playwright)
+    ├── e2e_functional.py   91 checagens no navegador (Playwright)
     ├── e2e_smoke.py        screenshots desktop/mobile + erros de console
     └── fixtures/user-test.dat
 ```
@@ -158,10 +159,10 @@ Limitações do importador:
 
 ```bash
 node tools/audit.js                 # auditoria 112%
-node tests/run-node-tests.js        # 17 testes unitários
+node tests/run-node-tests.js        # 25 testes unitários
 python3 tools/make_test_save.py     # (re)gera tests/fixtures/user-test.dat — precisa de `cryptography`
 python3 -m http.server 8765 &       # e depois:
-python3 tests/e2e_functional.py     # 69 checagens no navegador — precisa de `playwright` + Chromium
+python3 tests/e2e_functional.py     # 91 checagens no navegador — precisa de `playwright` + Chromium
 ```
 
 ## Limitações conhecidas (V1)
@@ -170,6 +171,9 @@ python3 tests/e2e_functional.py     # 69 checagens no navegador — precisa de `
 - Localizações dos Grimmkin são por área (a Wiki mostra os pontos só em imagens de mapa).
 - Valores de farm de Geo: só Colosseum e relíquias são números verificados; o resto é estimativa qualitativa.
 - Fontes vêm do Google Fonts; offline, o site usa fontes de sistema.
+- Árvores de Essence: a Wiki só dá a localização em nível de área (não por coordenada); o site mostra exatamente isso, com link — nada inventado.
+- Guia de bosses: HP varia com o nível da Nail e com fases; só entram números que a Wiki confirma, o resto fica em branco.
+- Perfis de save: o sync por Gist cobre só o perfil “Main save” (os outros ficam apenas neste navegador; use Export JSON para levá-los).
 - Essence é um número manual (gasto com Dreamgate não é rastreável automaticamente).
 
 ## Auto-sync no futuro
@@ -189,3 +193,14 @@ As imagens em `assets/bg/` são artes de fãs / promocionais de Hollow Knight (�
 
 ## Página Map
 `#/map` é um **esquema original** de Hallownest (js/atlas.js): regiões posicionadas aproximadamente, ligadas às vizinhas, com camadas (progresso, itens/charms/bosses que faltam, Stag Stations, Benches). Não é o mapa oficial nem está em escala; a página linka um mapa interativo da comunidade (Map Genie) para o mapa detalhado do jogo. Nenhuma imagem do mapa oficial é hospedada.
+
+## Página Plan
+`#/plan` reúne as ferramentas de planejamento (tudo calculado a partir do seu progresso, sem dados pré-marcados):
+- **Geo planner** — o que você pode comprar agora, o que falta juntar (e quanto), o que ainda não está acessível e os opcionais.
+- **Farm routes** — rotas de farm sem glitch, sugeridas pela sua % de conclusão (início / meio / fim), com onde, requisitos, dificuldade e retorno.
+- **Missables** — o que dá para perder ou travar (permanente / escolha / cuidado), com fonte. Aparece também como alerta no Dashboard quando o próximo objetivo é arriscado e como aviso no detalhe do item. Nunca bloqueia checkboxes.
+- **Come back later** — lista “voltar depois” (botão no detalhe de qualquer item); separa o que já dá para fazer agora.
+- **Charm builds** — montador com medidor de notches (aceita overcharm, mostrando o aviso), salvar/carregar/apagar builds.
+- **History** — gráfico da % ao longo dos dias (um ponto por dia de uso; gravado sem mexer no timestamp do sync).
+
+Também: **Trackers → Boss guide** (por boss: HP, ataques, dicas, o que levar, link da Wiki), **Trackers → Essence** (as 15 Whispering Roots por região com a Essence de cada uma), **notas por região** (na página da região) e **perfis de save** (Settings; até 8, cada um com progresso próprio).

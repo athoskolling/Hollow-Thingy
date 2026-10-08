@@ -130,6 +130,7 @@
     if (it.voidHeart) h += voidHeartBanner(true);
     if (done && miss.length && !it.derived) h += '<div class="banner warn compact">⚠️ Seu save indica que talvez algum requisito anterior não tenha sido registrado.' + missingHtml(miss) + '<button class="btn small" data-action="mark-prereqs" data-id="' + it.id + '">Mark these as done</button></div>';
     if (it.excludes && it.excludes.some(E.isDone)) h += '<div class="banner warn compact">Mutually exclusive with: ' + it.excludes.map(function (x) { return chip(x); }).join(' ') + '</div>';
+    var mz = missablesFor([it.id]); if (mz.length) h += mz.map(function (m) { return '<a class="banner warn compact" href="#/plan/missables">⚠️ <b>' + esc(m.title) + '</b> — ' + esc(m.warning.split('. ')[0]) + '. <u>Details</u></a>'; }).join('');
     h += '<dl class="facts' + (s.settings.spoilers && !done ? ' spoiler' : '') + '">';
     h += '<dt>📍 Location</dt><dd><a href="#/region/' + it.region + '">' + esc(regionName(it.region)) + '</a>' + (it.loc ? ' — <span class="sp">' + esc(it.loc) + '</span>' : '') + '</dd>';
     if (it.fn || it.reward) h += '<dt>🎯 Function</dt><dd>' + esc(it.fn || '') + (it.reward ? (it.fn ? '<br>' : '') + 'Reward: ' + esc(it.reward) : '') + '</dd>';
@@ -143,8 +144,10 @@
     if (it.notches) h += '<dt>✦ Notches</dt><dd>' + '◆'.repeat(it.notches) + ' (' + it.notches + ')</dd>';
     if (it.wiki) h += '<dt>🔗 Wiki</dt><dd><a href="' + it.wiki + '" target="_blank" rel="noopener">' + esc(it.wiki.replace('https://', '')) + ' ↗</a></dd>';
     h += '</dl>';
+    if (HK.GUIDE && HK.GUIDE.BOSSES[it.id]) h += '<details class="obj-how"><summary>⚔ Boss guide</summary>' + bossGuideHtml(it.id) + '</details>';
     if (!it.derived) {
       h += '<div class="item-actions">' +
+        '<button class="btn small" data-action="later" data-id="' + it.id + '">' + (store.isLater(it.id) ? '🕒 Remove from “Come back later”' : '🕒 Come back later') + '</button>' +
         '<button class="btn small" data-action="pin" data-id="' + it.id + '">' + (s.pinned === it.id ? '📌 Unpin' : '📌 Pin as objective') + '</button>' +
         '<button class="btn small ghost" data-action="set-region" data-id="' + it.region + '">I am in ' + esc(regionName(it.region)) + '</button>' +
         '</div>' +
@@ -254,11 +257,12 @@
   views.dashboard = function () {
     var s = st(), nxt = E.nextObjective(), h = '', c = E.completion(), cl = E.checklist(), cur = s.currentRegion;
     h += '<div class="now">';
-    h += '<p class="greet">Welcome back, little Knight.</p>';
+    h += '<p class="greet">Welcome back, little Knight.' + (store.profiles.list().length > 1 ? ' <a class="badge" href="#/settings">Save: ' + esc((store.profiles.list().filter(function (p) { return p.id === store.profiles.active(); })[0] || {}).name || '') + '</a>' : '') + (st().later.length ? ' <a class="badge" href="#/plan/later">🕒 ' + st().later.length + ' to come back to</a>' : '') + '</p>';
     // alerts (only when relevant)
     h += voidHeartBanner(true);
     if (E.isDone('black-egg')) h += '<div class="banner gold compact"><strong>🔓 BLACK EGG OPEN</strong>' + (E.isDone('ending-thk') ? '<span>All three Dreamers are sealed away.</span>' : '<span>⚠️ FAÇA O FINAL BÁSICO ANTES DO VOID HEART.</span>') + '</div>';
     h += noticeBox();
+    h += (function () { var n0 = E.nextObjective(); return missableAlert(n0 ? [n0.item.id].concat(E.whileHere(st().currentRegion, n0.item.id, 6).map(function (x) { return x.id; })) : []); })();
     // the one thing to do now
     h += '<section class="card objective" id="objective">';
     if (!nxt) {
@@ -413,6 +417,7 @@
     var rest = items.filter(function (i) { return !used[i.id] && !(i.type === 'derived'); });
     if (rest.length) h += '<details class="card group"><summary><h3>Other</h3><span class="muted small">' + rest.length + '</span></summary>' + itemList(rest) + '</details>';
     h += poiCard(id);
+    h += '<section class="card"><h3>📝 My notes — ' + esc(shortRegion(id)) + '</h3><label class="note-label"><textarea data-action="note" data-id="region:' + id + '" rows="3" placeholder="E.g. come back with Monarch Wings…">' + esc(st().notes['region:' + id] || '') + '</textarea></label></section>';
     return h;
   };
 
@@ -455,6 +460,7 @@
     h += '<section class="card"><h3>Settings</h3><div class="settings">' +
       setting('spoilers', 'Spoiler protection (blur locations & instructions until hovered/tapped)') +
       setting('compact', 'Compact lists') + setting('hideOptional', 'Hide optional items in the checklist') + setting('hideDone', 'Hide completed items in the checklist') + '</div></section>';
+    h += profilesCard();
     h += '<section class="card"><h3>Tools</h3><div class="btn-row">' +
       '<button class="btn" data-action="open-editor">' + ico('edit') + ' Update my save</button>' +
       '<a class="btn" href="#/save">' + ico('save') + ' Import save / backup</a>' +
@@ -506,7 +512,7 @@
   /* ------------------------------ trackers ------------------------------ */
   function trackerTabs(active) {
     var tabs = [['geo', 'Geo'], ['abilities', 'Movement & Spells'], ['keys', 'Keys'], ['nail', 'Nail & Ore'], ['masks', 'Masks & Vessels'], ['charms', 'Charms'], ['nailarts', 'Nail Arts'], ['essence', 'Essence'],
-      ['bosses', 'Bosses'], ['endings', 'Dreamers & Endings'], ['grimm', 'Grimm Troupe'], ['colosseum', 'Colosseum'], ['godhome', 'Godhome']];
+      ['bosses', 'Bosses'], ['guide', 'Boss guide'], ['endings', 'Dreamers & Endings'], ['grimm', 'Grimm Troupe'], ['colosseum', 'Colosseum'], ['godhome', 'Godhome']];
     return '<div class="tabs" role="tablist">' + tabs.map(function (t) { return '<a role="tab" class="tab' + (t[0] === active ? ' on' : '') + '" href="#/trackers/' + t[0] + '">' + t[1] + '</a>'; }).join('') + '</div>';
   }
   function itemsWhere(fn) { return DATA.ITEMS.filter(fn); }
@@ -632,9 +638,9 @@
       }).join('') + '</ul><p class="muted small">Essence spent on Dreamgate warps (1 each) lowers your total — edit the number manually any time. One-time sources add up to 3208.</p></section>';
     var sum = function (list) { return list.reduce(function (a, i) { return a + (E.isDone(i.id) ? i.essence : 0); }, 0) + '/' + list.reduce(function (a, i) { return a + i.essence; }, 0); };
     var wd = itemsWhere(function (i) { return i.type === 'warrior'; }), dbs = itemsWhere(function (i) { return i.type === 'dreamboss'; }), roots = itemsWhere(function (i) { return i.type === 'root'; });
+    h += rootsCard();
     h += '<section class="card"><h3>Warrior Dreams <span class="muted">' + sum(wd) + ' Essence</span></h3>' + itemList(wd, { showRegion: true }) + '</section>';
     h += '<section class="card"><h3>Dream Bosses <span class="muted">' + sum(dbs) + ' Essence</span></h3>' + itemList(dbs, { showRegion: true }) + '</section>';
-    h += '<section class="card"><h3>Whispering Roots <span class="muted">' + sum(roots) + ' Essence</span></h3>' + itemList(roots, { showRegion: true }) + '</section>';
     h += '<section class="card"><h3>Dream Nail</h3>' + itemList(['dream-nail', 'awoken-dream-nail', 'seer-ascension'].map(function (x) { return byId[x]; })) + '</section>';
     h += '<section class="card"><h3>◌ Grubs</h3>' + resInput('grubs', 'Grubs rescued', st().resources.grubs, 46) +
       '<p class="muted small">Grubfather: 5 → Mask Shard · 10 → Grubsong · 31 → Pale Ore · 46 → Grubberfly\'s Elegy (plus Geo/Rancid Eggs/relics in between). <a href="https://hollowknight.wiki/w/Grubs" target="_blank" rel="noopener">All grub locations ↗</a></p></section>';
@@ -688,6 +694,228 @@
     return '<header class="page-head"><h1>Trackers</h1></header>' + trackerTabs(tab) + trackers[tab]();
   };
 
+
+
+  /* ============================== PLAN: geo planner, farms, missables, later, builds, history ============================== */
+  var PLAN_TABS = [['geo', 'Geo planner'], ['farm', 'Farm routes'], ['missables', 'Missables'], ['later', 'Come back later'], ['builds', 'Charm builds'], ['history', 'History']];
+  var plan = {};
+  views.plan = function (tab) {
+    tab = plan[tab] ? tab : 'geo';
+    return '<header class="page-head"><h1>Plan</h1><p class="lead">Tools to decide what to do — and what to avoid — next.</p></header>' +
+      '<div class="tabs" role="tablist">' + PLAN_TABS.map(function (t) { return '<a role="tab" class="tab' + (t[0] === tab ? ' on' : '') + '" href="#/plan/' + t[0] + '">' + t[1] +
+        (t[0] === 'later' && st().later.length ? ' <span class="badge">' + st().later.length + '</span>' : '') + '</a>'; }).join('') + '</div>' + plan[tab]();
+  };
+
+  /* ---- Geo planner ---- */
+  function buyRow(i, geo) {
+    var miss = E.missing(i), short = i.cost.geo - geo;
+    return '<div class="buy' + (miss.length ? ' locked' : '') + '"><input type="checkbox" class="chk" data-action="toggle" data-id="' + i.id + '" aria-label="Mark ' + esc(i.name) + ' as bought">' +
+      '<div class="buy-main"><button class="link-btn" data-action="open-item" data-id="' + i.id + '"><b>' + esc(i.name) + '</b></button> <span class="muted small">· ' + esc(shortRegion(i.region)) + (i.optional ? ' · optional' : '') + '</span>' +
+      (miss.length ? '<div class="mc-need"><span class="small muted">Needs first:</span>' + missingHtml(miss) + '</div>' : '') + '</div>' +
+      '<div class="buy-cost"><b>' + fmt(i.cost.geo) + '</b> Geo' + (i.cost.ore ? '<small> + ' + i.cost.ore + ' Pale Ore</small>' : '') +
+      (miss.length ? '' : short > 0 ? '<small class="neg">need ' + fmt(short) + ' more</small>' : '<small class="pos">you can buy it</small>') + '</div></div>';
+  }
+  plan.geo = function () {
+    var geo = st().resources.geo, nn = E.nextNail();
+    var buys = DATA.ITEMS.filter(function (i) { return i.cost && i.cost.geo && !E.isDone(i.id) && !E.isImplied(i.id) && !i.beyond && !(i.excludes && i.excludes.some(E.isDone)); });
+    function ord(i) { var s = E.stageIndex[i.stage]; return (s === undefined ? 99 : s) * 1e6 + i.cost.geo; }
+    var core = buys.filter(function (i) { return !i.optional; }).sort(function (x, y) { return ord(x) - ord(y); });
+    var opt = buys.filter(function (i) { return i.optional; }).sort(function (x, y) { return x.cost.geo - y.cost.geo; });
+    var avail = core.filter(function (i) { return !E.missing(i).length; });
+    var now = avail.filter(function (i) { return i.cost.geo <= geo; }), saving = avail.filter(function (i) { return i.cost.geo > geo; }), locked = core.filter(function (i) { return E.missing(i).length; });
+    var total = core.reduce(function (s, i) { return s + i.cost.geo; }, 0);
+    var h = '<section class="card"><h3>' + ico('geo') + ' Geo planner</h3><div class="res-editors">' + resInput('geo', 'Geo you have', geo, 0) + '</div>';
+    h += '<div class="atlas-facts"><span class="soft">Still to spend (required) <b>' + fmt(total) + '</b></span><span class="soft ' + (geo >= total ? 'ok' : 'no') + '">' + (geo >= total ? 'you can afford everything' : 'short by <b>' + fmt(total - geo) + '</b>') + '</span>' +
+      (nn ? '<span class="soft">Next nail <b>' + fmt(nn.geo) + '</b>' + (nn.ore ? ' + ' + nn.ore + ' ore' : '') + '</span>' : '') + '</div>';
+    var next = saving[0] || now[0];
+    if (next) h += '<p>' + (now.length ? '✅ <b>You can buy ' + now.length + ' thing' + (now.length > 1 ? 's' : '') + ' right now.</b> ' : '') + (saving[0] ? 'Next to save for: <b>' + esc(saving[0].name) + '</b> — ' + fmt(saving[0].cost.geo) + ' Geo (' + fmt(saving[0].cost.geo - geo) + ' more).' : '') + '</p>';
+    h += '<p class="muted small">Suggested order follows the roadmap stage, then price. Spend on what unlocks progress first. Geo you lose on death stays in your Shade — see Missables.</p>';
+    h += '<p><a class="btn small" href="#/plan/farm">Need Geo? See farm routes →</a></p></section>';
+    h += '<section class="card"><h3>✅ Can buy now <span class="muted">(' + now.length + ')</span></h3>' + (now.length ? now.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">Nothing you can afford and reach right now.</p>') + '</section>';
+    h += '<section class="card"><h3>💰 Saving for <span class="muted">(' + saving.length + ')</span></h3>' + (saving.length ? saving.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">Nothing left to save for among what you can reach.</p>') + '</section>';
+    h += '<section class="card"><h3>🔒 Not reachable yet <span class="muted">(' + locked.length + ')</span></h3>' + (locked.length ? locked.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">—</p>') + '</section>';
+    if (opt.length) h += '<details class="card group"><summary><h3>Optional purchases</h3><span class="muted small">' + opt.length + '</span></summary>' + opt.map(function (i) { return buyRow(i, geo); }).join('') + '</details>';
+    return h;
+  };
+
+  /* ---- Farm routes ---- */
+  plan.farm = function () {
+    var v = E.completion().value, phase = v < 20 ? 'Early' : v < 60 ? 'Mid' : 'Late';
+    var fit = { Early: ['Early', 'Any'], Mid: ['Mid', 'Mid–Late', 'Any'], Late: ['Late', 'Mid–Late', 'Any'] }[phase];
+    var geo = st().resources.geo;
+    var need = DATA.ITEMS.filter(function (i) { return i.cost && i.cost.geo && !E.isDone(i.id) && !i.optional && !i.beyond && !(i.excludes && i.excludes.some(E.isDone)); }).reduce(function (s, i) { return s + i.cost.geo; }, 0);
+    var h = '<section class="card"><h3>' + ico('geo') + ' Geo farm routes <span class="muted">for your progress (' + v + '%) — ' + phase.toLowerCase() + ' game</span></h3>' +
+      '<p>You have <b>' + fmt(geo) + '</b> Geo; required purchases still cost <b>' + fmt(need) + '</b>' + (need > geo ? ' (short by <b>' + fmt(need - geo) + '</b>)' : '') + '. No glitches in any route.</p></section>';
+    var sorted = DATA.FARMS.slice().sort(function (a, b) { return (fit.indexOf(b.phase) >= 0 ? 1 : 0) - (fit.indexOf(a.phase) >= 0 ? 1 : 0); });
+    sorted.forEach(function (f) {
+      var good = fit.indexOf(f.phase) >= 0;
+      h += '<section class="card farm' + (good ? ' suggested' : '') + '"><div class="card-title"><h3>' + esc(f.name) + '</h3><span class="badge' + (good ? ' ok' : ' muted') + '">' + (good ? 'good for now' : f.phase) + '</span></div>' +
+        '<dl class="facts"><dt>📍 Where</dt><dd>' + esc(f.where) + '</dd><dt>🔑 Needs</dt><dd>' + esc(f.req) + '</dd><dt>⚔ Difficulty</dt><dd>' + esc(f.difficulty) + '</dd><dt>💰 Return</dt><dd>' + esc(f.ret) + '</dd><dt>🪑 Bench</dt><dd>' + esc(f.bench) + '</dd></dl>' +
+        '<a class="small" href="' + f.wiki + '" target="_blank" rel="noopener">Wiki ↗</a></section>';
+    });
+    return h + '<p class="muted small">Returns marked “verified” come from the wiki; others are qualitative — Geo per enemy varies.</p>';
+  };
+
+  /* ---- Missables ---- */
+  function missableState(m) {
+    var items = (m.items || []).filter(function (x) { return byId[x]; });
+    if (m.id === 'grimm-ritual-or-banishment') return E.isDone('nightmare-king-grimm') || E.isDone('banishment') ? 'settled' : 'ahead';
+    if (!items.length) return 'info';
+    return items.every(E.isDone) ? 'settled' : 'ahead';
+  }
+  function missablesFor(ids, onlyHard) {
+    var set = {}; ids.forEach(function (x) { set[x] = 1; });
+    return ((HK.GUIDE && HK.GUIDE.MISSABLES) || []).filter(function (m) { return (!onlyHard || m.severity !== 'caution') && missableState(m) === 'ahead' && (m.items || []).some(function (x) { return set[x]; }); });
+  }
+  var SEV = { permanent: ['🚫 Permanent', 'danger'], choice: ['⚖ Choice', 'warn'], caution: ['⚠ Caution', 'muted'] };
+  function missableCard(m) {
+    var s = missableState(m), sev = SEV[m.severity] || SEV.caution;
+    return '<section class="card miss ' + m.severity + (s === 'settled' ? ' settled' : '') + '"><div class="card-title"><h3>' + esc(m.title) + '</h3><span class="badge ' + sev[1] + '">' + sev[0] + '</span></div>' +
+      '<p>' + esc(m.warning) + '</p><p class="miss-avoid"><b>What to do:</b> ' + esc(m.avoid) + '</p>' +
+      ((m.items || []).filter(function (x) { return byId[x]; }).length ? '<div class="mc-need">' + m.items.filter(function (x) { return byId[x]; }).map(function (x) { return chip(x); }).join(' ') + '</div>' : '') +
+      '<p class="small muted">' + (s === 'settled' ? '✓ Already behind you. ' : '') + '<a href="' + m.source + '" target="_blank" rel="noopener">Source: wiki ↗</a></p></section>';
+  }
+  function missableAlert(ids) {
+    var list = missablesFor(ids, true); if (!list.length) return '';
+    return '<a class="banner warn missable-banner" href="#/plan/missables">⚠️ <b>Heads-up — ' + esc(list[0].title) + '.</b> <span class="muted">' + esc(list[0].warning.split('. ')[0]) + '.</span> <u>Read before continuing</u></a>';
+  }
+  plan.missables = function () {
+    var all = (HK.GUIDE && HK.GUIDE.MISSABLES) || [], order = { permanent: 0, choice: 1, caution: 2 };
+    all = all.slice().sort(function (x, y) { return order[x.severity] - order[y.severity]; });
+    var ahead = all.filter(function (m) { return missableState(m) !== 'settled'; }), done = all.filter(function (m) { return missableState(m) === 'settled'; });
+    var h = '<section class="card"><h3>⚠️ Things you can lose or lock out</h3><p class="muted small">Only what the wiki clearly states. “Permanent” can’t be undone on that save; “Choice” is a fork — pick one on purpose; “Caution” is easy to avoid once you know. The site never blocks you from ticking anything.</p></section>';
+    h += '<h2 class="sub">Still ahead of you</h2>' + (ahead.length ? ahead.map(missableCard).join('') : '<p class="muted">Nothing left to watch out for. 🎉</p>');
+    if (done.length) h += '<h2 class="sub">Already behind you</h2>' + done.map(missableCard).join('');
+    return h;
+  };
+
+  /* ---- Come back later ---- */
+  plan.later = function () {
+    var ids = st().later, items = ids.map(function (x) { return byId[x]; }).filter(Boolean);
+    var open = items.filter(function (i) { return !E.isDone(i.id); }), finished = items.length - open.length;
+    var ready = open.filter(function (i) { return !E.missing(i).length && !E.softIssues(i).length; }), wait = open.filter(function (i) { return ready.indexOf(i) < 0; });
+    var h = '<section class="card"><h3>🕒 Come back later <span class="muted">' + open.length + '</span></h3><p class="muted small">Open any item (Checklist, region page, Charms…) and press “Come back later” to park it here — for things you saw but can’t get yet.</p>' +
+      (finished ? '<button class="btn small" data-action="later-clear-done">Clear ' + finished + ' finished</button>' : '') + '</section>';
+    if (!open.length) return h + '<section class="card"><p class="muted">Nothing parked. Items you add show up here, with the ones you can do <b>right now</b> first.</p></section>';
+    h += '<section class="card"><h3>✅ Ready now <span class="muted">(' + ready.length + ')</span></h3>' + itemList(ready, { showRegion: true }) + '</section>';
+    h += '<section class="card"><h3>🔒 Still waiting on something <span class="muted">(' + wait.length + ')</span></h3>' + itemList(wait, { showRegion: true }) + '</section>';
+    return h;
+  };
+
+  /* ---- Charm builds ---- */
+  var build = { sel: [], id: null, name: '', all: false };
+  function buildPool() {
+    return itemsWhere(function (i) { return i.type === 'charm' && i.notches && !i.voidHeart && (build.all || E.isDone(i.id)); }).sort(function (a, b) { return (a.charmNum || 99) - (b.charmNum || 99); });
+  }
+  function buildUsed(sel) { return sel.reduce(function (s, id) { return s + ((byId[id] && byId[id].notches) || 0); }, 0); }
+  plan.builds = function () {
+    var total = E.notches(), used = buildUsed(build.sel), over = used > total, pool = buildPool();
+    var boxes = ''; for (var n = 0; n < Math.max(total, used); n++) boxes += '<span class="nb ' + (n < used ? 'used' : '') + (n >= total ? ' over' : '') + '"></span>';
+    var h = '<section class="card"><h3>' + ico('charm') + ' Charm build maker</h3><div class="notch-meter" aria-label="Notches used">' + boxes + '</div>' +
+      '<p><b>' + used + '</b> / ' + total + ' notches used' + (over ? ' · <span class="neg">Overcharmed — you take double damage (and can’t equip more safely)</span>' : used === total ? ' · <span class="pos">full</span>' : '') + '</p>' +
+      '<label class="chk-line"><input type="checkbox" data-action="build-all"' + (build.all ? ' checked' : '') + '> Plan with charms I don’t own yet</label></section>';
+    h += '<section class="card"><h3>Pick charms <span class="muted">(' + pool.length + ')</span></h3>' + (pool.length ? '<div class="charm-grid">' + pool.map(function (c) {
+      var on = build.sel.indexOf(c.id) >= 0, own = E.isDone(c.id);
+      return '<button class="cg' + (on ? ' on' : '') + (own ? '' : ' unowned') + '" data-action="build-toggle" data-id="' + c.id + '" aria-pressed="' + on + '" title="' + esc(c.fn || '') + '"><b>' + esc(c.name) + '</b><span class="notch">' + '◆'.repeat(c.notches) + '</span>' + (own ? '' : '<small>not owned</small>') + '</button>';
+    }).join('') + '</div>' : '<p class="muted">You don’t own any charm yet — tick the box above to plan ahead, or collect some first.</p>') + '</section>';
+    if (build.sel.length) h += '<section class="card"><h3>This build</h3><ul class="build-fx">' + build.sel.map(function (id) { var c = byId[id]; return '<li><b>' + esc(c.name) + '</b> <span class="notch">' + '◆'.repeat(c.notches) + '</span> <span class="muted">— ' + esc(c.fn || '') + '</span></li>'; }).join('') + '</ul></section>';
+    h += '<section class="card"><h3>Save this build</h3><div class="sync-form"><input id="buildName" type="text" maxlength="40" placeholder="Name (e.g. Boss fights)" value="' + esc(build.name) + '" data-action="build-name" aria-label="Build name">' +
+      '<button class="btn btn-primary" data-action="build-save"' + (build.sel.length ? '' : ' disabled') + '>' + (build.id ? 'Update' : 'Save') + '</button><button class="btn ghost" data-action="build-clear">Clear</button></div></section>';
+    var bs = st().builds;
+    h += '<section class="card"><h3>Saved builds <span class="muted">(' + bs.length + ')</span></h3>' + (bs.length ? bs.map(function (b) {
+      var u = buildUsed(b.charms), miss = b.charms.filter(function (c) { return !E.isDone(c); }).length;
+      return '<div class="saved-build"><div><b>' + esc(b.name) + '</b> <span class="muted small">· ' + u + ' notches' + (miss ? ' · ' + miss + ' not owned' : '') + (u > total ? ' · <span class="neg">over your ' + total + '</span>' : '') + '</span><div class="small muted">' + b.charms.map(function (c) { return esc((byId[c] || {}).name || c); }).join(' · ') + '</div></div>' +
+        '<div class="btn-row"><button class="btn small" data-action="build-load" data-id="' + b.id + '">Load</button><button class="btn small ghost" data-action="build-del" data-id="' + b.id + '">Delete</button></div></div>';
+    }).join('') : '<p class="muted small">No saved builds yet.</p>') + '</section>';
+    return h;
+  };
+
+  /* ---- History ---- */
+  function localDay() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function recHist() { try { store.recordHistory(localDay(), E.completion().value, E.checklist().done); } catch (e) { /* noop */ } }
+  plan.history = function () {
+    var hs = st().history, h = '<section class="card"><h3>' + ico('chart') + ' Progress history</h3>';
+    if (hs.length < 2) return h + '<p class="muted">Your history starts today (' + (hs[0] ? hs[0].v + '%' : '0%') + '). Come back after your next session — one point is saved per day you play.</p></section>';
+    var W = 700, H = 240, pl = 38, pr = 14, pt = 14, pb = 30, t0 = Date.parse(hs[0].d), t1 = Date.parse(hs[hs.length - 1].d), span = Math.max(1, t1 - t0);
+    var maxv = Math.max(10, Math.ceil(Math.max.apply(null, hs.map(function (p) { return p.v; })) / 10) * 10);
+    function X(p) { return pl + (Date.parse(p.d) - t0) / span * (W - pl - pr); }
+    function Y(v) { return pt + (1 - v / maxv) * (H - pt - pb); }
+    var pts = hs.map(function (p) { return X(p).toFixed(1) + ',' + Y(p.v).toFixed(1); }).join(' ');
+    var svg = '<svg class="hist-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Completion percentage over time">';
+    [0, .25, .5, .75, 1].forEach(function (f) { var v = Math.round(maxv * f), y = Y(v); svg += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y + '" y2="' + y + '" class="hg"/><text x="' + (pl - 6) + '" y="' + (y + 4) + '" text-anchor="end" class="ht">' + v + '%</text>'; });
+    svg += '<polygon points="' + X(hs[0]).toFixed(1) + ',' + Y(0) + ' ' + pts + ' ' + X(hs[hs.length - 1]).toFixed(1) + ',' + Y(0) + '" class="harea"/><polyline points="' + pts + '" class="hline"/>';
+    hs.forEach(function (p) { svg += '<circle cx="' + X(p).toFixed(1) + '" cy="' + Y(p.v).toFixed(1) + '" r="3.5" class="hdot"><title>' + p.d + ' — ' + p.v + '%</title></circle>'; });
+    svg += '<text x="' + pl + '" y="' + (H - 8) + '" class="ht">' + hs[0].d + '</text><text x="' + (W - pr) + '" y="' + (H - 8) + '" text-anchor="end" class="ht">' + hs[hs.length - 1].d + '</text></svg>';
+    var gain = hs[hs.length - 1].v - hs[0].v, best = 0, bestD = '';
+    for (var i = 1; i < hs.length; i++) { var g = hs[i].v - hs[i - 1].v; if (g > best) { best = g; bestD = hs[i].d; } }
+    h += svg + '<div class="atlas-facts"><span class="soft">Started <b>' + hs[0].d + '</b></span><span class="soft">Now <b>' + hs[hs.length - 1].v + '%</b> (' + (gain >= 0 ? '+' : '') + gain + ')</span><span class="soft">Days played <b>' + hs.length + '</b></span>' + (best ? '<span class="soft">Best day <b>+' + best + '%</b> on ' + bestD + '</span>' : '') + '</div></section>';
+    h += '<section class="card"><h3>Recent days</h3><div class="table-wrap"><table class="tbl"><thead><tr><th>Day</th><th>Completion</th><th>Change</th><th>Checklist</th></tr></thead><tbody>' +
+      hs.slice(-14).reverse().map(function (p) { var ix = hs.indexOf(p), d = ix > 0 ? p.v - hs[ix - 1].v : 0; return '<tr><td>' + p.d + '</td><td>' + p.v + '%</td><td class="' + (d > 0 ? 'pos' : d < 0 ? 'neg' : 'muted') + '">' + (d > 0 ? '+' : '') + d + '</td><td>' + p.c + '</td></tr>'; }).join('') + '</tbody></table></div></section>';
+    return h;
+  };
+
+  /* ---- Boss guide (from hollowknight.wiki, paraphrased) ---- */
+  function bossGuideHtml(id) {
+    var g = HK.GUIDE && HK.GUIDE.BOSSES[id]; if (!g) return '';
+    var meta = [];
+    if (g.hp) meta.push('<span class="soft">HP <b>' + fmt(g.hp) + '</b></span>');
+    if (g.hpByNail) meta.push('<span class="soft" title="Nail level 0 → 4">HP by Nail <b>' + g.hpByNail.join(' / ') + '</b></span>');
+    if (g.essence) meta.push('<span class="soft">Essence <b>' + g.essence + '</b></span>');
+    var h = '<div class="bg">' + (meta.length ? '<div class="atlas-facts">' + meta.join('') + '</div>' : '');
+    if (g.attacks && g.attacks.length) h += '<h4>Attacks</h4><ul>' + g.attacks.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if (g.tips && g.tips.length) h += '<h4>Tips</h4><ul class="' + (st().settings.spoilers ? 'spoiler' : '') + '">' + g.tips.map(function (x) { return '<li class="sp">' + esc(x) + '</li>'; }).join('') + '</ul>';
+    if (g.bring && g.bring.length) h += '<h4>Useful to bring</h4><div class="bg-bring">' + g.bring.map(function (x) { return '<span class="soft">' + esc(x) + '</span>'; }).join('') + '</div>';
+    if (g.note) h += '<p class="small muted"><em>' + esc(g.note) + '</em></p>';
+    return h + '<p class="small muted"><a href="' + g.source + '" target="_blank" rel="noopener">Source: wiki ↗</a></p></div>';
+  }
+  var guideAll = false;
+  trackers.guide = function () {
+    var ids = Object.keys((HK.GUIDE && HK.GUIDE.BOSSES) || {}), list = ids.map(function (x) { return byId[x]; }).filter(Boolean);
+    list.sort(function (a, b) { return (E.stageIndex[a.stage] || 99) - (E.stageIndex[b.stage] || 99) || a.name.localeCompare(b.name); });
+    var left = list.filter(function (i) { return !E.isDone(i.id); }), shown = guideAll ? list : left;
+    var h = '<section class="card"><h3>⚔ Boss guide <span class="muted">' + left.length + ' of ' + list.length + ' left</span></h3><p class="muted small">Short notes paraphrased from hollowknight.wiki (base-game values; HP often scales with your Nail level). Tap a boss to open its notes.</p>' +
+      '<label class="chk-line"><input type="checkbox" data-action="guide-all"' + (guideAll ? ' checked' : '') + '> Show bosses I already beat</label></section>';
+    h += shown.map(function (i) {
+      var done = E.isDone(i.id), miss = E.missing(i).length;
+      return '<details class="card group boss-g' + (done ? ' done' : '') + '"><summary><h3>' + esc(i.name) + '</h3><span class="muted small">' + esc(shortRegion(i.region)) + ' · ' + (done ? '✓ beaten' : miss ? 'locked' : 'available') + '</span></summary>' +
+        '<div class="item-actions"><label class="chk-line"><input type="checkbox" class="chk" data-action="toggle" data-id="' + i.id + '"' + (done ? ' checked' : '') + '> Defeated</label></div>' +
+        '<dl class="facts' + (st().settings.spoilers && !done ? ' spoiler' : '') + '"><dt>📍</dt><dd class="sp">' + esc(i.loc || '—') + '</dd>' + (i.reward ? '<dt>🎁</dt><dd>' + esc(i.reward) + '</dd>' : '') + '</dl>' + bossGuideHtml(i.id) + '</details>';
+    }).join('') || '<p class="muted">Nothing left — every boss in the guide is beaten! 🎉</p>';
+    return h;
+  };
+
+  /* ---- Whispering Roots by location ---- */
+  function rootsCard() {
+    var roots = itemsWhere(function (i) { return i.type === 'root'; }), G = (HK.GUIDE && HK.GUIDE.ROOTS) || {};
+    var got = roots.filter(function (i) { return E.isDone(i.id); }), gotE = got.reduce(function (s, i) { return s + i.essence; }, 0), totE = roots.reduce(function (s, i) { return s + i.essence; }, 0);
+    var h = '<section class="card"><h3>🌳 Where to find every Whispering Root <span class="muted">' + got.length + '/' + roots.length + ' · ' + gotE + '/' + totE + ' Essence</span></h3>' +
+      '<p class="muted small">Strike the root with the Dream Nail and collect every orb. Positions are as precise as the wiki gets — it lists most roots only by area, so use the in-game map to look around the area.</p>';
+    DATA.REGIONS.forEach(function (r) {
+      var list = roots.filter(function (i) { return i.region === r.id; }); if (!list.length) return;
+      h += '<h4><a href="#/region/' + r.id + '">' + esc(r.name) + '</a></h4>' + list.map(function (i) {
+        var g = G[i.id] || {};
+        return '<div class="root-row' + (E.isDone(i.id) ? ' done' : '') + '"><input type="checkbox" class="chk" data-action="toggle" data-id="' + i.id + '"' + (E.isDone(i.id) ? ' checked' : '') + ' aria-label="Collected ' + esc(i.name) + '">' +
+          '<div><div class="' + (st().settings.spoilers ? 'spoiler' : '') + '"><span class="sp">' + esc(g.where || i.loc) + '</span></div>' + (g.reach ? '<div class="small muted">' + esc(g.reach) + '</div>' : '') + '</div><b class="root-ess">' + i.essence + '<small> Essence</small></b></div>';
+      }).join('');
+    });
+    var other = itemsWhere(function (i) { return i.essence && !i.derived && !i.beyond && ['root', 'warrior', 'dreamboss'].indexOf(i.type) >= 0 && !E.isDone(i.id); }).reduce(function (s, i) { return s + i.essence; }, 0);
+    var e = st().resources.essence;
+    h += '<p class="atlas-facts"><span class="soft">You hold <b>' + fmt(e) + '</b></span><span class="soft">Roots + Warrior/Dream bosses still uncollected <b>' + fmt(other) + '</b></span><span class="soft ' + (e + other >= 2400 ? 'ok' : 'no') + '">' + (e + other >= 2400 ? 'enough for the Seer’s 2400 (with other sources)' : 'these alone won’t reach 2400') + '</span></p>';
+    return h + '<p class="small muted"><a href="https://hollowknight.wiki/w/Whispering_Root" target="_blank" rel="noopener">Wiki: Whispering Root ↗</a></p></section>';
+  }
+
+  /* ---- save profiles ---- */
+  function profilesCard() {
+    var P = store.profiles, act = P.active(), list = P.list();
+    var h = '<section class="card"><h3>' + ico('save') + ' Save profiles</h3><p class="muted small">Each profile has its own progress, notes and builds — e.g. a normal run and a Steel Soul run. Cloud sync (Gist) only covers the <b>Main save</b>.</p>';
+    h += list.map(function (p) {
+      return '<div class="profile-row' + (p.id === act ? ' active' : '') + '"><input type="text" value="' + esc(p.name) + '" maxlength="30" data-action="profile-rename" data-id="' + p.id + '" aria-label="Profile name">' +
+        (p.id === act ? '<span class="badge ok">active</span>' : '<button class="btn small" data-action="profile-switch" data-id="' + p.id + '">Switch</button>') +
+        (p.id !== 'main' ? '<button class="btn small ghost" data-action="profile-del" data-id="' + p.id + '">Delete</button>' : '') + '</div>';
+    }).join('');
+    h += '<div class="sync-form"><input id="profileName" type="text" maxlength="30" placeholder="New profile name (e.g. Steel Soul)" aria-label="New profile name"><button class="btn btn-primary" data-action="profile-new">Create</button></div></section>';
+    return h;
+  }
 
   /* ------------------------------ map (schematic atlas) ------------------------------ */
   var MAP_LAYERS = [['progress', 'Progress'], ['items', 'Items left'], ['charms', 'Charms left'], ['bosses', 'Bosses left'], ['stag', 'Stag Stations'], ['bench', 'Benches']];
@@ -908,13 +1136,14 @@
     if (name === 'region') html = views.region(arg);
     else if (name === 'trackers') html = views.trackers(arg);
     else if (name === 'map') html = views.map(arg);
+    else if (name === 'plan') html = views.plan(arg);
     else if (views[name]) html = views[name]();
     else html = views.dashboard();
     view.innerHTML = html;
     if (music) music.setContext(name === 'region' && E.regionById[arg] ? arg : st().currentRegion);
     document.querySelectorAll('[data-nav]').forEach(function (a) {
       var nv = a.getAttribute('data-nav');
-      var on = nv === hash || (name === 'region' && nv === 'regions') || (name === 'trackers' && nv === 'trackers') || (name === 'map' && nv === 'map') || (name === 'audit' && nv === 'settings');
+      var on = nv === hash || (name === 'region' && nv === 'regions') || (name === 'trackers' && nv === 'trackers') || (name === 'map' && nv === 'map') || (name === 'plan' && nv === 'plan') || (name === 'audit' && nv === 'settings');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     return { name: name, arg: arg };
@@ -927,7 +1156,8 @@
     refreshModal();
   }
   window.addEventListener('hashchange', function () { closeNav(); render(false); window.scrollTo(0, 0); view.focus({ preventScroll: true }); });
-  store.subscribe(function (s, reason) { render(true); });
+  store.subscribe(function (s, reason) { recHist(); render(true); });
+  document.addEventListener('input', function (e) { var t = e.target; if (t.getAttribute && t.getAttribute('data-action') === 'build-name') build.name = t.value; });
 
   /* ============================== EVENTS ============================== */
   document.addEventListener('click', function (e) {
@@ -948,6 +1178,19 @@
       case 'open-item': e.preventDefault(); openItem(id); break;
       case 'close-modal': closeModal(); break;
       case 'pin': store.setPinned(st().pinned === id ? null : id); break;
+      case 'later': { var on = store.toggleLater(id); toast(on ? '🕒 Added to “Come back later”' : 'Removed from “Come back later”', 'ok'); break; }
+      case 'later-clear-done': st().later.filter(E.isDone).forEach(function (x) { store.toggleLater(x); }); break;
+      case 'build-toggle': { var bi = build.sel.indexOf(id); if (bi >= 0) build.sel.splice(bi, 1); else build.sel.push(id); render(true); break; }
+      case 'build-clear': build.sel = []; build.id = null; build.name = ''; render(true); break;
+      case 'build-save': { var nm = (document.getElementById('buildName') || {}).value || build.name || 'Build'; var sid = store.saveBuild({ id: build.id, name: nm, charms: build.sel }); if (sid) { build.id = sid; build.name = nm; toast('Build saved', 'ok'); } else toast('Build limit reached (30)', 'warn'); break; }
+      case 'build-load': { var bb = st().builds.filter(function (x) { return x.id === id; })[0]; if (bb) { build.sel = bb.charms.slice(); build.id = bb.id; build.name = bb.name; build.all = build.all || bb.charms.some(function (c) { return !E.isDone(c); }); render(true); } break; }
+      case 'build-del': store.deleteBuild(id); if (build.id === id) { build.id = null; } break;
+      case 'profile-new': { var pn = document.getElementById('profileName'); var nid = store.profiles.create(pn && pn.value); if (nid) { build.sel = []; build.id = null; toast('Profile created — you are now on a new save', 'ok'); } else toast('Profile limit reached (8)', 'warn'); break; }
+      case 'profile-switch': if (store.profiles.switchTo(id)) { build.sel = []; build.id = null; toast('Switched profile', 'ok'); } break;
+      case 'profile-del':
+        if (t.getAttribute('data-armed') !== '1') { t.setAttribute('data-armed', '1'); t.textContent = 'Tap again to delete'; setTimeout(function () { if (t.isConnected) { t.removeAttribute('data-armed'); t.textContent = 'Delete'; } }, 5000); }
+        else { store.profiles.remove(id); toast('Profile deleted'); }
+        break;
       case 'map-layer': mapLayer = id; render(true); break;
       case 'set-region': store.setRegion(id); toast('📍 ' + regionName(id)); break;
       case 'mark-prereqs': {
@@ -996,6 +1239,9 @@
     if (a === 'region') { store.setRegion(t.value); }
     if (a === 'setting') store.setSetting(t.getAttribute('data-key'), t.checked);
     if (a === 'note') store.setNote(id, t.value);
+    if (a === 'build-all') { build.all = t.checked; render(true); }
+    if (a === 'guide-all') { guideAll = t.checked; render(true); }
+    if (a === 'profile-rename') { store.profiles.rename(id, t.value); }
     if (a === 'spell') { var v = Number(t.value); var m = {}; m[t.getAttribute('data-a')] = v >= 1; m[t.getAttribute('data-b')] = v >= 2; store.setChecks(m, 'spell'); }
     if (a === 'nail') { var lv = Number(t.value), mm = {}; for (var n = 1; n <= 4; n++) mm['nail-' + n] = n <= lv; store.setChecks(mm, 'nail'); }
     if (a === 'import-json') readFile(t, 'text', function (txt) {
@@ -1085,6 +1331,7 @@
   var audit = runAudit();
   if (audit.errors.length) console.error('[HK] 112% audit FAILED', audit.errors); else console.info('[HK] 112% audit passed — total', audit.total);
   particles();
+  recHist();
   render(false);
   // expose for debugging/tests
   window.HKApp = { store: store, engine: E, render: render, runAudit: runAudit, openItem: openItem, music: music, ui: ui, sync: function () { return sync; } };

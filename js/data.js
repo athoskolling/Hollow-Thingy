@@ -450,22 +450,22 @@
   db('grey-prince-zote', 'Grey Prince Zote', 'dirtmouth', 300, { req: ['bretta-rescued', 'monarch-wings'], loc: "Bretta's basement (Dirtmouth).", how: 'Rescue Bretta and Zote, defeat Zote in the Colosseum, open the basement (Monarch Wings) and Dream Nail the statue.', save: { pd: 'greyPrinceDefeated' } });
 
   /* ---------- WHISPERING ROOTS (15 = 482 Essence) ---------- */
-  function rootI(n, region, ess, loc, scene) { I('root-' + n, 'Whispering Root — ' + loc.split(':')[0], 'root', region, 0, { tags: ['dream', 'optional'], optional: true, essence: ess, req: ['dream-nail'], stage: 's-cleanup', reward: ess + ' Essence', loc: loc, how: 'Strike it with the Dream Nail and collect all Essence orbs.', wiki: W('Whispering_Root'), save: { scene: ['Dream Plant', scene] } }); }
-  rootI(1, 'forgotten-crossroads', 29, 'Forgotten Crossroads: right of the Grubfather', 'Crossroads_07');
-  rootI(2, 'forgotten-crossroads', 42, 'Ancestral Mound', 'Crossroads_ShamanTemple');
-  rootI(3, 'fungal-wastes', 18, 'Fungal Wastes: above Mantis Village', 'Fungus2_17');
-  rootI(4, 'city-of-tears', 28, 'City of Tears: below the Stag Station', 'Ruins1_17');
-  rootI(5, 'howling-cliffs', 46, 'Howling Cliffs: main area', 'Cliffs_01');
-  rootI(6, 'crystal-peak', 21, "Crystal Peak: Hallownest's Crown area", 'Mines_23');
-  rootI(7, 'resting-grounds', 20, 'Resting Grounds: right of the Seer', 'RestingGrounds_05');
+  function rootI(n, region, ess, loc, scene) { I('root-' + n, 'Whispering Root — ' + loc, 'root', region, 0, { tags: ['dream', 'optional'], optional: true, essence: ess, req: ['dream-nail'], stage: 's-cleanup', reward: ess + ' Essence', loc: loc, how: 'Strike it with the Dream Nail and collect all Essence orbs.', wiki: W('Whispering_Root'), save: { scene: ['Dream Plant', scene] } }); }
+  rootI(1, 'forgotten-crossroads', 29, "Forgotten Crossroads: main area", 'Crossroads_07');
+  rootI(2, 'forgotten-crossroads', 42, "Ancestral Mound", 'Crossroads_ShamanTemple');
+  rootI(3, 'fungal-wastes', 18, "Fungal Wastes: near Mantis Village", 'Fungus2_17');
+  rootI(4, 'city-of-tears', 28, "City of Tears: near the City Storerooms", 'Ruins1_17');
+  rootI(5, 'howling-cliffs', 46, "Howling Cliffs", 'Cliffs_01');
+  rootI(6, 'crystal-peak', 21, "Crystal Peak", 'Mines_23');
+  rootI(7, 'resting-grounds', 20, "Resting Grounds: just outside the Seer's home", 'RestingGrounds_05');
   rootI(8, 'resting-grounds', 34, "Spirits' Glade (Seer 200)", 'RestingGrounds_08');
-  rootI(9, 'royal-waterways', 35, 'Royal Waterways: broken lift', 'Abyss_01');
-  rootI(10, 'greenpath', 44, "Greenpath: right of the Queen's Gardens exit", 'Fungus1_13');
-  rootI(11, 'fungal-wastes', 20, 'Fungal Wastes: left of the Leg Eater', 'Fungus2_33');
-  rootI(12, 'queens-gardens', 29, "Queen's Gardens: below the right bench", 'Fungus3_11');
-  rootI(13, 'kingdoms-edge', 51, "Kingdom's Edge: right of the Tower of Love", 'Deepnest_East_07');
-  rootI(14, 'deepnest', 45, "Deepnest: below Queen's Gardens", 'Deepnest_39');
-  rootI(15, 'the-hive', 20, 'The Hive: right of the bench', 'Hive_02');
+  rootI(9, 'royal-waterways', 35, "Royal Waterways: broken lift", 'Abyss_01');
+  rootI(10, 'greenpath', 44, "Greenpath", 'Fungus1_13');
+  rootI(11, 'fungal-wastes', 20, "Fungal Wastes: near Fog Canyon", 'Fungus2_33');
+  rootI(12, 'queens-gardens', 29, "Queen's Gardens", 'Fungus3_11');
+  rootI(13, 'kingdoms-edge', 51, "Kingdom's Edge", 'Deepnest_East_07');
+  rootI(14, 'deepnest', 45, "Deepnest", 'Deepnest_39');
+  rootI(15, 'the-hive', 20, "The Hive", 'Hive_02');
 
   /* ---------- DREAMERS (3%) ---------- */
   function dreamer(id, name, region, o) { o.tags = ['progression', 'dream']; o.stage = 's-dreamers'; o.goal = true; o.prio = o.prio || 8; I(id, name, 'dreamer', region, 1, o); }

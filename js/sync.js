@@ -46,9 +46,10 @@
         return gh('GET', '/gists/' + g.id);
       });
     }
+    function mainOnly() { return !store.profiles || store.profiles.active() === 'main'; }
     function payload() { return store.exportJSON(); }
     function push() {
-      if (!cfg.token) return Promise.resolve();
+      if (!cfg.token || !mainOnly()) return Promise.resolve();
       var body = { description: 'Hollow Knight Companion — progress (synced by the site)', files: {} };
       body.files[FILE] = { content: payload() };
       var p = cfg.gistId ? gh('PATCH', '/gists/' + cfg.gistId, body) : (body.public = false, gh('POST', '/gists', body));
@@ -57,6 +58,7 @@
     /** pull the remote copy; newest wins */
     function sync() {
       if (!cfg.token) return Promise.resolve('off');
+      if (!mainOnly()) { set('idle', 'Sync pauses while another save profile is active'); return Promise.resolve('paused'); }
       if (busy) return Promise.resolve('busy');
       busy = true; set('busy', 'Syncing…');
       return findGist().then(readGist).then(function (remote) {
@@ -74,7 +76,7 @@
     }
     var applying = false;
     store.subscribe(function (s, reason) {
-      if (!cfg.token || applying || reason === 'import-sync') return;
+      if (!cfg.token || applying || reason === 'import-sync' || reason === 'profile' || !mainOnly()) { if (reason === 'profile' && cfg.token && mainOnly()) sync(); return; }
       clearTimeout(timer);
       set('pending', 'Changes waiting to sync…');
       timer = setTimeout(function () { if (!busy) { busy = true; push().catch(function (e) { set('error', e.message); }).then(function () { busy = false; }); } }, opts.delay || 3000);

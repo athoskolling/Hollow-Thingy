@@ -19,6 +19,9 @@
       notes: {},
       pinned: null,
       recent: [],
+      later: [],
+      history: [],
+      builds: [],
       updatedAt: new Date().toISOString()
     };
   }
@@ -59,6 +62,9 @@
       music: Object.assign({}, base.music, obj.music || {}),
       notes: typeof obj.notes === 'object' && obj.notes ? obj.notes : {},
       pinned: known[obj.pinned] ? obj.pinned : null,
+      later: Array.isArray(obj.later) ? obj.later.filter(function (id, ix, a) { return known[id] && a.indexOf(id) === ix; }).slice(0, 300) : [],
+      history: Array.isArray(obj.history) ? obj.history.filter(function (h) { return h && /^\d{4}-\d{2}-\d{2}$/.test(h.d) && isFinite(h.v); }).map(function (h) { return { d: h.d, v: Math.max(0, Math.min(112, +h.v)), c: Math.max(0, Math.min(999, +h.c || 0)) }; }).slice(-800) : [],
+      builds: Array.isArray(obj.builds) ? obj.builds.filter(function (b) { return b && b.id && b.name; }).slice(0, 30).map(function (b) { return { id: String(b.id).slice(0, 24), name: String(b.name).slice(0, 40), charms: (Array.isArray(b.charms) ? b.charms : []).filter(function (c) { return known[c]; }).slice(0, 40) }; }) : [],
       recent: Array.isArray(obj.recent) ? obj.recent.filter(function (r) { return r && known[r.id]; }).slice(0, 12) : [],
       updatedAt: obj.updatedAt || new Date().toISOString()
     };
@@ -73,9 +79,18 @@
     var byId = {};
     DATA.ITEMS.forEach(function (i) { byId[i.id] = i; });
 
+    var PKEY = STORAGE_KEY + '-profiles';
+    var index = null;
+    function loadIndex() {
+      try { index = JSON.parse((storage && storage.getItem(PKEY)) || 'null'); } catch (e) { index = null; }
+      if (!index || !Array.isArray(index.list) || !index.list.length || !index.list.some(function (p) { return p.id === index.active; })) index = { active: 'main', list: [{ id: 'main', name: 'Main save' }] };
+    }
+    function saveIndex() { try { if (storage) storage.setItem(PKEY, JSON.stringify(index)); } catch (e) { /* noop */ } }
+    function keyFor(id) { return id === 'main' ? STORAGE_KEY : STORAGE_KEY + '--' + id; }
+    loadIndex();
     function load() {
       try {
-        var raw = storage && storage.getItem(STORAGE_KEY);
+        var raw = storage && storage.getItem(keyFor(index.active));
         state = raw ? normalize(JSON.parse(raw), DATA) : defaultState(DATA);
       } catch (e) {
         console.warn('[HK] Could not read saved state, starting fresh:', e.message);
@@ -84,7 +99,10 @@
     }
     function persist() {
       state.updatedAt = new Date().toISOString();
-      try { if (storage) storage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      write();
+    }
+    function write() {
+      try { if (storage) storage.setItem(keyFor(index.active), JSON.stringify(state)); }
       catch (e) { console.warn('[HK] localStorage unavailable:', e.message); }
     }
     function emit(reason) { persist(); listeners.forEach(function (fn) { try { fn(state, reason); } catch (e) { console.error(e); } }); }
@@ -130,6 +148,55 @@
       setSetting: function (key, value) { state.settings[key] = value; emit('settings'); },
       setMusic: function (patch) { Object.assign(state.music, patch); persist(); },
       setNote: function (id, text) { if (text) state.notes[id] = String(text).slice(0, 2000); else delete state.notes[id]; persist(); },
+      /* "come back later" list */
+      isLater: function (id) { return state.later.indexOf(id) >= 0; },
+      toggleLater: function (id) {
+        if (!byId[id]) return false;
+        var ix = state.later.indexOf(id);
+        if (ix >= 0) state.later.splice(ix, 1); else state.later.unshift(id);
+        emit('later'); return ix < 0;
+      },
+      /* progress history: one point per day (the last value of that day). Does not change updatedAt. */
+      recordHistory: function (day, value, checked) {
+        var h = state.history, last = h[h.length - 1];
+        if (last && last.d === day) { if (last.v === value && last.c === checked) return; last.v = value; last.c = checked; }
+        else h.push({ d: day, v: value, c: checked });
+        if (h.length > 800) h.splice(0, h.length - 800);
+        write();
+      },
+      /* charm builds */
+      saveBuild: function (b) {
+        var name = String(b.name || '').trim().slice(0, 40) || 'Build';
+        var charms = (b.charms || []).filter(function (c) { return byId[c]; });
+        var cur = b.id && state.builds.filter(function (x) { return x.id === b.id; })[0];
+        if (cur) { cur.name = name; cur.charms = charms; }
+        else { if (state.builds.length >= 30) return null; cur = { id: 'b' + Date.now().toString(36), name: name, charms: charms }; state.builds.push(cur); }
+        emit('builds'); return cur.id;
+      },
+      deleteBuild: function (id) { state.builds = state.builds.filter(function (x) { return x.id !== id; }); emit('builds'); },
+      /* save profiles (each has its own progress; only the "main" one is synced) */
+      profiles: {
+        list: function () { return index.list.slice(); },
+        active: function () { return index.active; },
+        create: function (name) {
+          if (index.list.length >= 8) return null;
+          var id = 'p' + Date.now().toString(36);
+          index.list.push({ id: id, name: String(name || '').trim().slice(0, 30) || 'Save ' + (index.list.length + 1) });
+          write(); index.active = id; saveIndex(); state = defaultState(DATA); emit('profile'); return id;
+        },
+        switchTo: function (id) {
+          if (id === index.active || !index.list.some(function (p) { return p.id === id; })) return false;
+          write(); index.active = id; saveIndex(); load(); emit('profile'); return true;
+        },
+        rename: function (id, name) { var p = index.list.filter(function (x) { return x.id === id; })[0]; if (p && String(name).trim()) { p.name = String(name).trim().slice(0, 30); saveIndex(); } },
+        remove: function (id) {
+          if (id === 'main' || !index.list.some(function (p) { return p.id === id; })) return false;
+          if (index.active === id) { index.active = 'main'; load(); }
+          index.list = index.list.filter(function (p) { return p.id !== id; });
+          try { if (storage) storage.removeItem(keyFor(id)); } catch (e) { /* noop */ }
+          saveIndex(); emit('profile'); return true;
+        }
+      },
       setPinned: function (id) { state.pinned = id || null; emit('pin'); },
       subscribe: function (fn) { listeners.push(fn); return function () { listeners = listeners.filter(function (f) { return f !== fn; }); }; },
       exportJSON: function () {

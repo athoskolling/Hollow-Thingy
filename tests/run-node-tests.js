@@ -81,5 +81,66 @@ t('real-save pipeline decodes synthetic user.dat', () => {
   assert.ok(!res.changes.some(c => c.id === 'ismas-tear'));
 });
 t('importer rejects non-save files', () => { assert.throws(() => SI.decode(Buffer.from('hello world'))); });
+
+/* ---- Plan features: later list, history, builds, profiles, guide data ---- */
+function memStore() { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: k => { delete m[k]; }, _m: m }; }
+t('come-back-later list toggles, dedupes and survives export/import', () => {
+  const { s } = fresh();
+  assert.strictEqual(s.toggleLater('crystal-heart'), true); assert.ok(s.isLater('crystal-heart'));
+  assert.strictEqual(s.toggleLater('crystal-heart'), false); assert.ok(!s.isLater('crystal-heart'));
+  assert.strictEqual(s.toggleLater('not-an-item'), false);
+  s.toggleLater('mantis-claw'); s.toggleLater('desolate-dive');
+  const s2 = St.createStore(D, null); s2.importJSON(s.exportJSON());
+  assert.deepStrictEqual(s2.get().later, ['desolate-dive', 'mantis-claw']);
+});
+t('history keeps one point per day and never bumps updatedAt (no sync ping-pong)', () => {
+  const { s } = fresh(); const u = s.get().updatedAt;
+  s.recordHistory('2026-10-01', 5, 10); s.recordHistory('2026-10-01', 7, 12); s.recordHistory('2026-10-02', 7, 12);
+  assert.deepStrictEqual(s.get().history, [{ d: '2026-10-01', v: 7, c: 12 }, { d: '2026-10-02', v: 7, c: 12 }]);
+  assert.strictEqual(s.get().updatedAt, u);
+});
+t('history import drops malformed entries and clamps values', () => {
+  const { s } = fresh();
+  s.importJSON({ version: 1, history: [{ d: 'bad', v: 3 }, { d: '2026-01-01', v: 500, c: 2 }, null, { d: '2026-01-02', v: 'x' }] });
+  assert.deepStrictEqual(s.get().history, [{ d: '2026-01-01', v: 112, c: 2 }]);
+});
+t('charm builds: save, update, delete, unknown charms are dropped', () => {
+  const { s } = fresh();
+  const id = s.saveBuild({ name: 'Boss', charms: ['quick-slash', 'nope', 'fragile-heart'] });
+  assert.ok(id); assert.deepStrictEqual(s.get().builds[0].charms.filter(c => c === 'nope'), []);
+  s.saveBuild({ id, name: 'Boss v2', charms: ['quick-slash'] });
+  assert.strictEqual(s.get().builds.length, 1); assert.strictEqual(s.get().builds[0].name, 'Boss v2');
+  s.deleteBuild(id); assert.strictEqual(s.get().builds.length, 0);
+});
+t('save profiles: independent progress, rename, remove, main protected', () => {
+  const mem = memStore(); const s = St.createStore(D, mem);
+  s.setCheck('mantis-claw', true);
+  const id = s.profiles.create('Steel Soul');
+  assert.strictEqual(s.profiles.active(), id); assert.strictEqual(Object.keys(s.get().checks).length, 0);
+  s.setCheck('crystal-heart', true);
+  assert.ok(s.profiles.switchTo('main')); assert.ok(s.isChecked('mantis-claw')); assert.ok(!s.isChecked('crystal-heart'));
+  const s2 = St.createStore(D, mem); assert.strictEqual(s2.profiles.active(), 'main'); assert.ok(s2.isChecked('mantis-claw'));
+  s2.profiles.switchTo(id); assert.ok(s2.isChecked('crystal-heart'));
+  s2.profiles.rename(id, 'SS run'); assert.strictEqual(s2.profiles.list().find(p => p.id === id).name, 'SS run');
+  assert.strictEqual(s2.profiles.remove('main'), false);
+  assert.ok(s2.profiles.remove(id)); assert.strictEqual(s2.profiles.active(), 'main'); assert.strictEqual(s2.profiles.list().length, 1);
+  assert.ok(!(('hk-companion-state--' + id) in mem._m));
+});
+t('save profiles are capped at 8', () => {
+  const s = St.createStore(D, memStore()); for (let k = 0; k < 7; k++) assert.ok(s.profiles.create('p' + k));
+  assert.strictEqual(s.profiles.create('too many'), null);
+});
+t('guide data: boss/root/missable ids exist, every entry has a source, no invented HP', () => {
+  const G = require(path.join(root, 'js/guide.js')); const ids = new Set(D.ITEMS.map(i => i.id));
+  const g = G.GUIDE || G;
+  Object.keys(g.BOSSES).forEach(k => { assert.ok(ids.has(k), 'boss ' + k); assert.ok(g.BOSSES[k].source, 'source ' + k); });
+  Object.keys(g.ROOTS).forEach(k => { assert.ok(ids.has(k), 'root ' + k); assert.ok(g.ROOTS[k].source, 'source ' + k); });
+  g.MISSABLES.forEach(m => { assert.ok(['permanent', 'choice', 'caution'].includes(m.severity)); assert.ok(m.source); m.items.forEach(i => assert.ok(ids.has(i), 'missable item ' + i)); });
+  assert.ok(Object.keys(g.ROOTS).length === D.ITEMS.filter(i => /^root-/.test(i.id)).length);
+});
+t('every geo-priced item has a numeric cost and farms have a wiki source', () => {
+  D.ITEMS.filter(i => i.cost && i.cost.geo !== undefined).forEach(i => assert.ok(Number.isFinite(i.cost.geo) && i.cost.geo > 0, i.id));
+  D.FARMS.forEach(f => assert.ok(f.name && f.where && f.wiki));
+});
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
