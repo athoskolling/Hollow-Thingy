@@ -99,6 +99,34 @@
     cache.hero = s;
     return s;
   }
+  /* Full-page backdrop: an original, region-tinted night landscape (far/mid/near silhouettes, glow, motes). */
+  function backdrop(theme) {
+    var key = 'bd-' + theme;
+    if (cache[key]) return cache[key];
+    var W = 1600, H = 900, kind = KIND[theme] || 'spires', t = TINT[theme] || TINT.city, r = rng(key);
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' +
+      '<defs><linearGradient id="bs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + t[0] + '"/><stop offset=".65" stop-color="#070b16"/><stop offset="1" stop-color="#03050a"/></linearGradient>' +
+      '<radialGradient id="bg1" cx="72%" cy="22%" r="48%"><stop offset="0" stop-color="' + t[1] + '" stop-opacity=".5"/><stop offset="1" stop-color="' + t[1] + '" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="bg2" cx="50%" cy="100%" r="70%"><stop offset="0" stop-color="' + t[1] + '" stop-opacity=".16"/><stop offset="1" stop-color="' + t[1] + '" stop-opacity="0"/></radialGradient></defs>' +
+      '<rect width="' + W + '" height="' + H + '" fill="url(#bs)"/><rect width="' + W + '" height="' + H + '" fill="url(#bg1)"/><rect width="' + W + '" height="' + H + '" fill="url(#bg2)"/>' +
+      '<circle cx="1150" cy="190" r="70" fill="' + t[1] + '" opacity=".18"/><circle cx="1150" cy="190" r="46" fill="' + t[1] + '" opacity=".22"/>';
+    for (var i = 0; i < 90; i++) s += '<circle cx="' + (r() * W).toFixed(0) + '" cy="' + (r() * H * 0.7).toFixed(0) + '" r="' + (0.5 + r() * 1.5).toFixed(1) + '" fill="' + t[1] + '" opacity="' + (0.15 + r() * 0.55).toFixed(2) + '"/>';
+    s += layer(kind, r, W, H - 60, H * 0.95, t[1], 0.10);
+    s += layer(kind, r, W, H - 20, H * 0.72, '#0b1224', 0.8);
+    for (i = 0; i < 26; i++) { var lx = r() * W, ly = H * 0.5 + r() * H * 0.4; s += '<circle cx="' + lx.toFixed(0) + '" cy="' + ly.toFixed(0) + '" r="' + (1.5 + r() * 2).toFixed(1) + '" fill="#ffd98a" opacity="' + (0.4 + r() * 0.5).toFixed(2) + '"/><circle cx="' + lx.toFixed(0) + '" cy="' + ly.toFixed(0) + '" r="14" fill="#ffd98a" opacity=".07"/>'; }
+    s += layer(kind, r, W, H + 6, H * 0.46, '#04060b', 0.97) + '</svg>';
+    cache[key] = s;
+    return s;
+  }
+  function mountBackdrop() {
+    if (typeof document === 'undefined') return;
+    var el = document.getElementById('backdrop'); if (!el) return;
+    var cur = null;
+    function upd() { var th = document.body.getAttribute('data-theme') || 'city'; if (th !== cur) { cur = th; el.innerHTML = backdrop(th); } }
+    upd();
+    new MutationObserver(upd).observe(document.body, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+  if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountBackdrop); else mountBackdrop(); }
   root.HK = root.HK || {};
-  root.HK.Art = { scene: scene, hero: hero, TINT: TINT };
+  root.HK.Art = { scene: scene, hero: hero, backdrop: backdrop, TINT: TINT };
 })(typeof window !== 'undefined' ? window : globalThis);

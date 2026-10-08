@@ -4,9 +4,9 @@
 :root {
   --bg: #04060b;
   --bg-2: #080c16;
-  --panel: rgba(13, 19, 33, 0.78);
+  --panel: rgba(13, 19, 33, 0.6);
   --panel-solid: #0d1321;
-  --panel-2: rgba(22, 31, 51, 0.7);
+  --panel-2: rgba(22, 31, 51, 0.55);
   --line: rgba(196, 214, 240, 0.14);
   --line-2: rgba(196, 214, 240, 0.28);
   --text: #e7ecf5;
@@ -71,6 +71,10 @@ h4 { font-size: .9rem; color: var(--muted); text-transform: uppercase; letter-sp
 .pos { color: var(--ok); } .neg { color: var(--danger); } .gold { color: var(--gold); }
 
 /* --------------------------- atmosphere --------------------------- */
+#backdrop { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+#backdrop svg { width: 100%; height: 100%; display: block; animation: bdIn .8s ease; }
+@keyframes bdIn { from { opacity: 0; } to { opacity: 1; } }
+.card, .kpi, .region-card, .region-head, .banner, .tl-body { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
 .fog { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .fog-layer { position: absolute; inset: -20% -50%; opacity: .5;
