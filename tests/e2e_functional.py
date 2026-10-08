@@ -176,60 +176,47 @@ with sync_playwright() as p:
     page.fill('#music input[data-music=volume]', '0.2'); page.locator('#music input[data-music=volume]').dispatch_event('input')
     check('volume saved', abs(js(page, "HKApp.store.get().music.volume") - 0.2) < 1e-6)
 
-    # --- V2: interactive map, region panel, per-region soundtrack
+    # --- V2: no world map; regions card, region panel, per-region soundtrack
     check('music uses the original region ambience', js(page, "HKApp.music.state().source") == 'gen')
-    page.goto(BASE + '#/map'); page.wait_for_timeout(400)
-    check('map draws 18 regions', page.locator('.wm-reg').count() == 18)
-    nb = page.locator('.wm-poi.t-bench').count()
-    check('map shows 48 bench markers (+2 trams)', nb == 48, nb)
-    check('map shows 11 stag stations', page.locator('.wm-poi.t-stag').count() == 11)
-    check('map shows vendors and bosses', page.locator('.wm-poi.t-vendor').count() >= 15 and page.locator('.wm-poi.t-boss').count() >= 40)
-    page.click('.wm-layers-inline [data-wm-layer=bench]'); page.wait_for_timeout(250)
-    check('layer toggle hides benches', page.locator('.wm-poi.t-bench').count() == 0)
-    page.click('.wm-layers-inline [data-wm-layer=bench]'); page.wait_for_timeout(250)
-    page.locator('.wm-reg[data-region=deepnest] .rf').first.click(position={'x': 4, 'y': 4}); page.wait_for_timeout(300)
-    check('region click opens side panel', 'DEEPNEST' in page.locator('.map-side .rp-title').inner_text().upper())
-    check('music follows the selected region', js(page, "HKApp.music.state().region") == 'deepnest')
-    page.locator('.wm-poi[data-poi="item:nosk"]').click(); page.wait_for_timeout(250)
-    check('marker popover shows boss', 'Nosk' in page.locator('.wm-pop').inner_text())
-    page.fill('[data-wm-search]', 'lemm'); page.wait_for_timeout(200)
-    page.locator('.wm-results button').first.click(); page.wait_for_timeout(300)
-    check('map search zooms to a marker', 'Lemm' in page.locator('.wm-pop').inner_text())
-    page.click('[data-wm-found]'); page.wait_for_timeout(300)
-    check('mark a vendor as found (persisted)', js(page, "HKApp.store.get().settings.poiFound['city-of-tears|Relic Seeker Lemm']") is True)
-    img = os.path.join(HERE, 'fixtures', 'test-map.png')
-    if not os.path.exists(img):
-        from PIL import Image, ImageDraw
-        im = Image.new('RGB', (1000, 820), (10, 12, 20)); d = ImageDraw.Draw(im)
-        for i in range(0, 1000, 50): d.line([(i, 0), (i, 820)], fill=(60, 70, 90))
-        im.save(img)
-    page.set_input_files('.img-card input[data-action=map-img-file]', img); page.wait_for_timeout(800)
-    check('own map image shown under the map', page.locator('.wm-bgimg').count() == 1 and page.locator('.wm.has-bg').count() == 1)
-    page.fill('input[data-action=map-img][data-key=opacity]', '0.5'); page.locator('input[data-action=map-img][data-key=opacity]').dispatch_event('change'); page.wait_for_timeout(300)
-    check('image alignment saved', abs(js(page, "HKApp.store.get().settings.mapImage.opacity") - 0.5) < 1e-6)
-    page.reload(); page.wait_for_timeout(900)
-    check('map image survives reload (IndexedDB)', page.locator('.wm-bgimg').count() == 1)
-    page.click('[data-action=map-img-clear]'); page.wait_for_timeout(500)
-    check('map image removed', page.locator('.wm-bgimg').count() == 0)
-    # calibrated detailed map (synthetic image with the 4712x3500 proportions) + art
-    cal = os.path.join(HERE, 'fixtures', 'test-calibrated.png'); art = os.path.join(HERE, 'fixtures', 'test-art.png')
-    if not os.path.exists(cal):
-        from PIL import Image
-        Image.new('RGB', (1178, 875), (5, 5, 10)).save(cal); Image.new('RGB', (600, 600), (30, 30, 60)).save(art)
-    page.set_input_files('.img-card input[data-action=map-img-file]', cal); page.wait_for_timeout(900)
-    check('calibrated image switches to Detailed mode', js(page, "HK.WorldMap.mode({store: HKApp.store})") == 'image' and page.locator('.wm.img .wm-detail').count() == 1)
-    check('detailed: grubs layer from the calibrated layout', page.locator('.wm[data-wm=full] .wm-poi.t-grub').count() == 42)
-    page.click('.wm-bar [data-wm-preset=stations]'); page.wait_for_timeout(400)
-    check('preset Stations shows only stag + tram', page.locator('.wm[data-wm=full] .wm-poi').count() == page.locator('.wm[data-wm=full] .wm-poi.t-stag, .wm[data-wm=full] .wm-poi.t-tram').count() > 0)
-    page.click('.wm-bar [data-wm-preset=none]'); page.wait_for_timeout(400)
-    check('preset Image only hides markers', page.locator('.wm[data-wm=full] .wm-poi').count() == 0)
-    page.click('.wm-bar [data-wm-preset=all]'); page.wait_for_timeout(300)
-    page.click('[data-wm-base=drawn]'); page.wait_for_timeout(400)
-    check('Clean switch returns to the drawn map', js(page, "HK.WorldMap.mode({store: HKApp.store})") == 'drawn' and page.locator('.wm-detail').count() == 0)
-    page.set_input_files('input[data-action=art-img-file]', art); page.wait_for_timeout(700)
-    check('art image used as page background', js(page, "document.body.classList.contains('art-bg')"))
-    page.click('[data-action=map-img-clear][data-id=art]'); page.wait_for_timeout(400)
-    page.click('[data-action=map-img-clear][data-id=bg]'); page.wait_for_timeout(400)
+    page.goto(BASE + '#/map'); page.wait_for_timeout(300)
+    check('no world map anywhere', page.locator('.wm, .wm-svg, [data-nav=map]').count() == 0 and js(page, "typeof HK.WorldMap") == 'undefined')
+    page.goto(BASE + '#/dashboard'); page.wait_for_timeout(300)
+    check('regions card lists 18 regions', page.locator('.rg-row').count() == 18)
+    page.click('.rg-row[data-id=deepnest]'); page.wait_for_timeout(250)
+    check('regions card selects the region panel', 'DEEPNEST' in page.locator('.rpanel .rp-title').inner_text().upper())
+    page.goto(BASE + '#/region/deepnest'); page.wait_for_timeout(400)
+    check('region page lists points of interest (stag, benches)', page.locator('text=Distant Village Station').count() >= 1)
+    check('music follows the region on screen', js(page, "HKApp.music.state().region") == 'deepnest')
+
+    # --- sync between devices (GitHub Gist API mocked)
+    gists = {}
+    def gh(route):
+        req = route.request; url = req.url; meth = req.method
+        if url.endswith('/gists?per_page=100') and meth == 'GET':
+            return route.fulfill(json=[{'id': k, 'files': {'hollow-knight-companion.json': {}}} for k in gists])
+        if url.endswith('/gists') and meth == 'POST':
+            body = json.loads(req.post_data); gid = 'g' + str(len(gists) + 1)
+            gists[gid] = body['files']['hollow-knight-companion.json']['content']
+            return route.fulfill(status=201, json={'id': gid})
+        gid = url.rsplit('/', 1)[-1]
+        if meth == 'PATCH':
+            gists[gid] = json.loads(req.post_data)['files']['hollow-knight-companion.json']['content']
+            return route.fulfill(json={'id': gid})
+        if meth == 'GET' and gid in gists:
+            return route.fulfill(json={'id': gid, 'files': {'hollow-knight-companion.json': {'content': gists[gid], 'truncated': False}}})
+        return route.fulfill(status=404, json={})
+    page.route('https://api.github.com/**', gh)
+    page.goto(BASE + '#/save'); page.wait_for_timeout(300)
+    page.fill('#syncToken', 'ghp_test'); page.click('[data-action=sync-connect]'); page.wait_for_timeout(1200)
+    check('sync: first connect creates the private gist with progress', len(gists) == 1 and json.loads(list(gists.values())[0]).get('app') == 'hollow-knight-companion')
+    remote = json.loads(gists['g1']); remote['checks']['crystal-heart'] = True; remote['updatedAt'] = '2099-01-01T00:00:00.000Z'; gists['g1'] = json.dumps(remote)
+    page.click('[data-action=sync-now]'); page.wait_for_timeout(1200)
+    check('sync: newer progress from another device is pulled', js(page, "HKApp.engine.isDone('crystal-heart')"))
+    js(page, "HKApp.store.setCheck('mantis-lords', true)"); page.wait_for_timeout(3800)
+    check('sync: local change is pushed automatically', json.loads(gists['g1'])['checks'].get('mantis-lords') is True)
+    page.click('[data-action=sync-off]'); page.wait_for_timeout(300)
+    check('sync: disconnect', not js(page, "HKApp.sync().connected()"))
+    page.unroute('https://api.github.com/**')
     page.goto(BASE + '#/dashboard'); page.wait_for_timeout(300)
     page.click('.rp-tab[data-id=bosses]'); page.wait_for_timeout(200)
     check('region panel bosses tab', page.locator('.rpanel .rrow').count() >= 1)

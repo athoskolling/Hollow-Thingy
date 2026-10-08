@@ -10,8 +10,9 @@
   var byId = E.byId;
   var view = document.getElementById('view');
   var expanded = {};             // expanded item rows (UI only)
-  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, panelRegion: null, regionTab: 'overview', panelAll: false, mapRegion: null, mapFor: null, focusPending: null };
+  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, panelRegion: null, regionTab: 'overview', panelAll: false };
   var music = null;               // region soundtrack player (audio.js)
+  var sync = null;                // optional sync between devices (sync.js)
 
   /* ============================== helpers ============================== */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -227,8 +228,8 @@
       '<button class="icon-btn rr-go" data-action="open-item" data-id="' + it.id + '" aria-label="Details: ' + esc(it.name) + '">' + ico('chevron') + '</button></div>';
   }
   function poiRow(p, focus) {
-    var T = HK.POI.TYPES[p.type], fnd = HK.WorldMap.isFound({ store: store, E: E }, p);
-    return '<div class="rrow poi' + (fnd ? ' done' : '') + '">' + (focus ? '<button class="icon-btn rr-go" data-action="map-poi" data-id="' + esc(p.id) + '" aria-label="Show on map">' + ico('target') + '</button>' : '') + '<span class="ti" style="--pc:' + T.color + '">' + ico(p.type === 'boss' ? 'skull' : p.type) + '</span>' +
+    var T = HK.POI.TYPES[p.type];
+    return '<div class="rrow poi">' + '<span class="ti" style="--pc:' + T.color + '">' + ico(p.type === 'boss' ? 'skull' : p.type) + '</span>' +
       '<div class="rr-main static"><b>' + esc(p.name) + '</b><small>' + esc(T.one + (p.sub ? ' · ' + p.sub : '') + (p.cost ? ' · ' + p.cost + ' Geo' : '') + (p.note ? ' — ' + p.note : '')) + '</small></div>' +
       (p.item && byId[p.item] ? '<button class="icon-btn rr-go" data-action="open-item" data-id="' + p.item + '" aria-label="Details">' + ico('chevron') + '</button>' : '') + '</div>';
   }
@@ -335,24 +336,27 @@
       (list.length ? '<div class="rp-list">' + list.map(function (i) { return rrow(i, { sub: (i.fn || TYPE_LABEL[i.type] || '').slice(0, 60) }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here.</p>') +
       '<a class="btn small wide" href="#/region/' + cur + '">View all items in this region ' + ico('arrow') + '</a></section>';
   }
-  function mapCtx() {
-    return { E: E, DATA: DATA, store: store, typeLabel: function (t) { return TYPE_LABEL[t]; },
-      selectedRegion: ui.mapFor === 'full' ? ui.mapRegion : ui.panelRegion,
-      onRegion: function (id, key) {
-        if (key === 'full') { ui.mapRegion = id; } else { ui.panelRegion = id; ui.regionTab = 'overview'; ui.panelAll = false; }
-        render(true);
-      } };
+  function regionsCard() {
+    var s = st();
+    var h = '<section class="card regions-card"><div class="card-title"><h3>' + ico('compass') + ' Regions</h3><a class="btn tiny" href="#/regions">All regions ' + ico('arrow') + '</a></div><div class="rg-list">';
+    DATA.REGIONS.forEach(function (r) {
+      var p = E.regionProgress(r.id), cur = r.id === s.currentRegion;
+      var stt = cur ? 'current' : p.complete ? 'complete' : p.accessible ? 'accessible' : 'locked';
+      h += '<button class="rg-row st-' + stt + (ui.panelRegion === r.id ? ' sel' : '') + '" data-action="panel-region" data-id="' + r.id + '" aria-pressed="' + (ui.panelRegion === r.id) + '">' +
+        '<span class="rg-dot" aria-hidden="true"></span><span class="rg-name">' + esc(regionName(r.id).replace(" & King's Pass", '').replace(' & Colosseum', '')) + (cur ? ' <small>· you are here</small>' : '') + '</span>' +
+        '<span class="rg-bar">' + bar(p.pct) + '</span><span class="rg-num">' + (stt === 'locked' ? '🔒 ' : '') + p.mainDone + '/' + p.main + '</span></button>';
+    });
+    h += '</div><div class="wm-legend"><span><i class="lg complete"></i>Completed</span><span><i class="lg current"></i>Current</span><span><i class="lg accessible">✦</i>Accessible</span><span><i class="lg locked"></i>Locked</span></div></section>';
+    return h;
   }
-
   views.dashboard = function () {
     var s = st(), nxt = E.nextObjective(), h = '', c = E.completion(), cl = E.checklist();
     var cur = s.currentRegion, curR = E.regionById[cur];
     if (!ui.panelRegion || !E.regionById[ui.panelRegion]) ui.panelRegion = cur;
-    ui.mapFor = 'dash';
     h += '<div class="dash">';
     h += '<div class="dash-main">';
     // hero
-    h += '<section class="hero">' + heroArt() + '<div class="hero-text"><h1>WELCOME BACK, LITTLE KNIGHT</h1><p>“In the end, what’s left? A shadow, a name…<br>and the quiet echo of a forgotten kingdom.”</p></div></section>';
+    h += '<section class="hero">' + HK.Art.hero() + '<div class="hero-text"><h1>WELCOME BACK, LITTLE KNIGHT</h1><p>“In the end, what’s left? A shadow, a name…<br>and the quiet echo of a forgotten kingdom.”</p></div></section>';
     // stat cards
     h += '<div class="stat-row">';
     h += '<section class="card stat-pair"><div class="stat"><span class="st-l">Completion</span><span class="st-v"><b>' + c.value + '%</b> / 112%</span>' + bar(c.value / 112 * 100) + '</div>' +
@@ -369,10 +373,9 @@
     h += voidHeartBanner(true);
     if (E.isDone('black-egg')) h += '<div class="banner gold compact"><strong>🔓 BLACK EGG OPEN</strong>' + (E.isDone('ending-thk') ? '<span>All three Dreamers are sealed away.</span>' : '<span>⚠️ FAÇA O FINAL BÁSICO ANTES DO VOID HEART.</span>') + '</div>';
     h += warningsBox();
-    // map + region panel
+    // regions + region panel
     h += '<div class="duo">';
-    h += '<section class="card map-card"><div class="card-title"><h3>' + ico('map') + ' World Map</h3><a class="btn tiny" href="#/map">Full map ' + ico('arrow') + '</a></div>' +
-      HK.WorldMap.html(mapCtx(), 'dash', { compact: true }) + '</section>';
+    h += regionsCard();
     h += regionPanel(ui.panelRegion);
     h += '</div>';
     // route + requirements
@@ -446,7 +449,6 @@
 
   views.roadmap = function () {
     var h = '<header class="page-head"><h1>Roadmap</h1><p class="lead">Recommended order — never mandatory. It adapts to anything you do out of order.</p></header>';
-    h += '<section class="card"><h3>Schematic map of Hallownest</h3><p class="muted small">Not the official map — a simplified diagram of how the regions connect. ✓ complete · → current · ○ future.</p>' + schematicMap() + '</section>';
     h += voidHeartBanner(true);
     h += '<ol class="timeline">';
     E.stageStatus().forEach(function (x, idx) {
@@ -469,32 +471,6 @@
     h += '</ol>';
     return h;
   };
-  var MAP_NODES = {
-    'howling-cliffs': [60, 40], 'dirtmouth': [200, 40], 'crystal-peak': [360, 60], 'greenpath': [70, 140], 'forgotten-crossroads': [210, 140],
-    'resting-grounds': [400, 160], 'fog-canyon': [150, 220], 'queens-gardens': [40, 260], 'fungal-wastes': [190, 280], 'city-of-tears': [320, 260],
-    'kingdoms-edge': [460, 260], 'the-hive': [480, 360], 'deepnest': [110, 370], 'royal-waterways': [320, 350], 'ancient-basin': [290, 430],
-    'the-abyss': [290, 510], 'white-palace': [410, 450], 'godhome': [460, 520]
-  };
-  var MAP_EDGES = [['howling-cliffs', 'dirtmouth'], ['dirtmouth', 'crystal-peak'], ['dirtmouth', 'forgotten-crossroads'], ['howling-cliffs', 'greenpath'], ['greenpath', 'forgotten-crossroads'],
-    ['forgotten-crossroads', 'crystal-peak'], ['forgotten-crossroads', 'resting-grounds'], ['forgotten-crossroads', 'fog-canyon'], ['greenpath', 'fog-canyon'], ['greenpath', 'queens-gardens'],
-    ['fog-canyon', 'queens-gardens'], ['fog-canyon', 'fungal-wastes'], ['forgotten-crossroads', 'fungal-wastes'], ['fungal-wastes', 'city-of-tears'], ['fungal-wastes', 'deepnest'],
-    ['queens-gardens', 'deepnest'], ['city-of-tears', 'resting-grounds'], ['city-of-tears', 'kingdoms-edge'], ['city-of-tears', 'royal-waterways'], ['kingdoms-edge', 'the-hive'],
-    ['royal-waterways', 'ancient-basin'], ['royal-waterways', 'kingdoms-edge'], ['deepnest', 'ancient-basin'], ['ancient-basin', 'the-abyss'], ['ancient-basin', 'white-palace'], ['royal-waterways', 'godhome']];
-  function schematicMap() {
-    var svg = '<svg class="schematic" viewBox="0 0 520 570" role="img" aria-label="Schematic region map">';
-    MAP_EDGES.forEach(function (e) { var a = MAP_NODES[e[0]], b = MAP_NODES[e[1]]; svg += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '"/>'; });
-    DATA.REGIONS.forEach(function (r) {
-      var p = MAP_NODES[r.id]; if (!p) return;
-      var status = E.regionStatus(r.id), pr = E.regionProgress(r.id);
-      var icon = status === 'complete' ? '✓' : status === 'current' ? '→' : '○';
-      svg += '<a href="#/region/' + r.id + '" class="node st-' + status + (pr.accessible ? '' : ' locked') + '"><circle cx="' + p[0] + '" cy="' + p[1] + '" r="17"/>' +
-        '<text x="' + p[0] + '" y="' + (p[1] + 5) + '" class="ni">' + icon + '</text>' +
-        '<text x="' + p[0] + '" y="' + (p[1] + 33) + '" class="nl">' + esc(r.name.replace(' & King\'s Pass', '').replace(' & Colosseum', '')) + '</text>' +
-        '<text x="' + p[0] + '" y="' + (p[1] + 46) + '" class="np">' + pr.mainDone + '/' + pr.main + '</text></a>';
-    });
-    return svg + '</svg>';
-  }
-
   views.regions = function () {
     var h = '<header class="page-head"><h1>Regions</h1><p class="lead">✓ COMPLETE · → CURRENT · ○ FUTURE — optional items never block a region.</p></header>' + regionSelect();
     h += '<div class="region-grid">' + DATA.REGIONS.map(function (r) {
@@ -565,102 +541,13 @@
     var list = HK.POI.LIST.filter(function (p) { return p.region === id; });
     if (!list.length) return '';
     var order = ['stag', 'bench', 'tram', 'vendor', 'npc', 'spring', 'cornifer', 'cocoon', 'landmark', 'boss'];
-    var h = '<section class="card"><div class="card-title"><h3>' + ico('map') + ' Points of interest <span class="muted small">' + list.length + '</span></h3><button class="btn tiny" data-action="map-region" data-id="' + id + '">Show on map ' + ico('arrow') + '</button></div>';
+    var h = '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' Points of interest <span class="muted small">' + list.length + '</span></h3></div>';
     order.forEach(function (t) {
       var l = list.filter(function (p) { return p.type === t; });
       if (!l.length) return;
       h += '<h4>' + esc(HK.POI.TYPES[t].label) + ' <span class="muted">' + l.length + '</span></h4><div class="rp-list">' + l.map(poiRow).join('') + '</div>';
     });
     return h + '<p class="muted small">Bosses and Whispering Roots of this region are listed above with their checkboxes.</p></section>';
-  }
-
-  /* ------------------------------ world map page ------------------------------ */
-  views.map = function () {
-    ui.mapFor = 'full';
-    var sel = ui.mapRegion && E.regionById[ui.mapRegion] ? ui.mapRegion : null;
-    var h = '<header class="page-head"><h1>World Map</h1><p class="lead">Drag to pan · scroll or pinch to zoom · tap a region or a marker · search any place. Zoom in to see sub-areas. Mark benches, stations and vendors as found.</p></header>';
-    h += '<div class="map-page"><section class="card map-full">' + HK.WorldMap.html(mapCtx(), 'full', {}) + '</section>';
-    h += '<aside class="map-side">' + mapImageCard();
-    if (!sel) {
-      var T = HK.POI.TYPES;
-      h += '<section class="card"><h3>Hallownest at a glance</h3><ul class="glance">' +
-        '<li>' + ico('bench') + '<span>' + HK.POI.BENCHES_TOTAL + ' benches</span><small>48 seats + 2 trams (each tram counts once)</small></li>' +
-        '<li>' + ico('stag') + '<span>' + HK.POI.LIST.filter(function (p) { return p.type === 'stag'; }).length + ' Stag Stations</span><small>Crossroads 50 · Greenpath 140 · Queen\'s Station 120 · Storerooms 200 · King\'s 300 · Gardens 200 · Distant Village 250 · Hidden 300 · Dirtmouth, Resting Grounds & Stag Nest free</small></li>' +
-        '<li>' + ico('vendor') + '<span>' + HK.POI.LIST.filter(function (p) { return p.type === 'vendor'; }).length + ' vendors & services</span><small>Sly, Iselda, Salubra, Leg Eater, Lemm, Nailsmith, Seer, Nailmasters…</small></li>' +
-        '<li>' + ico('cornifer') + '<span>Cornifer in 12 areas</span><small>Buy each area map from him (or later from Iselda).</small></li>' +
-        '<li>' + ico('cocoon') + '<span>8 Lifeblood Cocoons</span><small>19 Lifeseeds in total.</small></li></ul>' +
-        '<p class="muted small">Select a region on the map to list everything in it.</p></section>';
-    } else {
-      var r = E.regionById[sel], p = E.regionProgress(sel), L = HK.WorldMap.getLayers({ store: store });
-      var pois = HK.WorldMap.allPois(DATA, HK.POI).filter(function (x) { return x.region === sel && (x.type !== 'item' || !E.isDone(x.item)); });
-      h += '<section class="card rpanel theme-' + r.theme + '"><div class="rp-art">' + regionArt(r) + '<div class="rp-head"><h3 class="rp-title">' + esc(r.name) + '</h3>' +
-        '<div class="rp-prog"><span>Main route</span><b>' + p.mainDone + ' / ' + p.main + '</b>' + bar(p.pct) + '<em>' + p.pct + '%</em></div></div></div>' +
-        '<p class="access small">🚪 ' + esc(r.access) + '</p>' +
-        '<div class="btn-row"><a class="btn small" href="#/region/' + sel + '">Region guide ' + ico('arrow') + '</a>' + (st().currentRegion !== sel ? '<button class="btn small ghost" data-action="set-region" data-id="' + sel + '">' + ico('pin') + ' I am here</button>' : '') +
-        '<button class="btn small ghost" data-action="map-focus" data-id="' + sel + '">' + ico('target') + ' Zoom</button><button class="btn small ghost" data-action="map-clear">✕</button></div>';
-      ['stag', 'bench', 'tram', 'vendor', 'boss', 'root', 'spring', 'cornifer', 'cocoon', 'npc', 'landmark', 'item'].forEach(function (t) {
-        var l = pois.filter(function (x) { return x.type === t; });
-        if (!l.length) return;
-        h += '<h4 class="' + (L[t] ? '' : 'off') + '">' + esc(HK.POI.TYPES[t].label) + ' <span class="muted">' + l.length + '</span>' + (L[t] ? '' : ' <small>(layer hidden)</small>') + '</h4><div class="rp-list">' +
-          l.map(function (x) { return x.fromItem ? rrow(byId[x.item]) : poiRow(x, true); }).join('') + '</div>';
-      });
-      h += '</section>';
-    }
-    h += '</aside></div>';
-    return h;
-  };
-
-  function mapImageCard() {
-    var MI = HK.WorldMap.Images, o = MI.opts({ store: store }), has = !!MI.url('bg'), cal = MI.calibrated(), art = !!MI.url('art'), S = st().settings;
-    function rng(k, label, min, max, step, val) {
-      return '<label class="mi-rng"><span>' + label + ' <b data-mi-val="' + k + '">' + val + '</b></span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '" data-action="map-img" data-key="' + k + '"></label>';
-    }
-    var h = '<section class="card img-card"><h3>' + ico('map') + ' Your images</h3>';
-    h += '<p class="small muted">Images you load stay <b>only in this browser on this device</b> — they are never uploaded or added to the site.</p>';
-    // detailed map
-    h += '<div class="img-slot"><div class="img-slot-head"><b>Detailed map</b>' + (has ? (cal ? '<span class="badge ok-b">✓ calibrated</span>' : '<span class="badge">manual alignment</span>') : '') + '</div>' +
-      (has ? '<small class="muted">' + esc(MI.name('bg')) + '</small>' : '<small class="muted">A full annotated map of Hallownest. A 4712×3500 layout (any resolution with the same proportions) lines up automatically.</small>') +
-      '<div class="btn-row"><label class="btn small file-btn">' + ico('upload') + ' ' + (has ? 'Replace' : 'Load map image') + '<input type="file" accept="image/*" data-action="map-img-file" hidden></label>' +
-      (has ? '<button class="btn small danger" data-action="map-img-clear" data-id="bg">' + ico('trash') + ' Remove</button>' : '') + '</div>';
-    if (has && !cal) {
-      h += '<p class="small muted">This image has a different layout, so it is shown under the clean map — align it by hand:</p><div class="mi-ctrl">' +
-        rng('opacity', 'Opacity', 0.1, 1, 0.05, o.opacity) + rng('scale', 'Size', 0.5, 1.6, 0.005, o.scale) + rng('stretch', 'Width stretch', 0.7, 1.4, 0.005, o.stretch) +
-        rng('x', 'Move left/right', -700, 700, 2, o.x) + rng('y', 'Move up/down', -700, 700, 2, o.y) + '</div>' +
-        '<label class="toggle small"><input type="checkbox" data-action="map-img-rooms"' + (o.rooms ? ' checked' : '') + '> Show my room outlines</label> ' +
-        '<button class="btn tiny ghost" data-action="map-img-reset">Reset alignment</button>';
-    }
-    h += '</div>';
-    // art
-    h += '<div class="img-slot"><div class="img-slot-head"><b>Map of Hallownest art</b></div>' +
-      (art ? '<small class="muted">' + esc(MI.name('art')) + '</small>' : '<small class="muted">An illustration to decorate the site (page background and dashboard banner).</small>') +
-      '<div class="btn-row"><label class="btn small file-btn">' + ico('upload') + ' ' + (art ? 'Replace' : 'Load art image') + '<input type="file" accept="image/*" data-action="art-img-file" hidden></label>' +
-      (art ? '<button class="btn small" data-action="art-view">' + ico('expand') + ' View</button><button class="btn small danger" data-action="map-img-clear" data-id="art">' + ico('trash') + '</button>' : '') + '</div>';
-    if (art) h += '<div class="settings small"><label class="toggle"><input type="checkbox" data-action="setting" data-key="artBg"' + (S.artBg !== false ? ' checked' : '') + '> Use as page background</label>' +
-      '<label class="toggle"><input type="checkbox" data-action="setting" data-key="artHero"' + (S.artHero !== false ? ' checked' : '') + '> Use in the dashboard banner</label></div>';
-    h += '</div>';
-    return h + '</section>';
-  }
-  function applyArt() {
-    var MI = HK.WorldMap.Images, u = MI.url('art'), S = st().settings;
-    var bg = !!u && S.artBg !== false;
-    document.body.classList.toggle('art-bg', bg);
-    var layer = document.getElementById('artLayer');
-    if (bg) {
-      if (!layer) { layer = document.createElement('div'); layer.id = 'artLayer'; layer.setAttribute('aria-hidden', 'true'); document.body.insertBefore(layer, document.body.firstChild); }
-      if (layer.getAttribute('data-u') !== u) { layer.style.backgroundImage = 'url("' + u + '")'; layer.setAttribute('data-u', u); }
-    } else if (layer) layer.remove();
-  }
-  function heroArt() {
-    var u = HK.WorldMap.Images.url('art');
-    return u && st().settings.artHero !== false ? '<img class="hero-img" src="' + u + '" alt="">' : HK.Art.hero();
-  }
-  function storeImage(slot, f) {
-    var MI = HK.WorldMap.Images;
-    return MI.set(slot, f).then(function () {
-      if (slot === 'bg') { store.setSetting('mapBase', 'image'); toast(MI.calibrated() ? '🗺 Detailed map loaded and calibrated — only on this device' : '🗺 Map image loaded — align it in “Your images”', 'ok'); }
-      else { toast('🖼 Art loaded — only on this device', 'ok'); }
-      render(true);
-    }).catch(function (err) { alert('Could not store the image in this browser: ' + (err && err.message || err)); });
   }
 
   /* ------------------------------ soundtrack page ------------------------------ */
@@ -692,14 +579,12 @@
     h += '<section class="card"><h3>Settings</h3><div class="settings">' +
       setting('spoilers', 'Spoiler protection (blur locations & instructions until hovered/tapped)') +
       setting('compact', 'Compact lists') + setting('hideOptional', 'Hide optional items in the checklist') + setting('hideDone', 'Hide completed items in the checklist') + '</div></section>';
-    h += mapImageCard();
     h += '<section class="card"><h3>Tools</h3><div class="btn-row">' +
       '<button class="btn" data-action="open-editor">' + ico('edit') + ' Update my save</button>' +
       '<a class="btn" href="#/save">' + ico('save') + ' Import save / backup</a>' +
       '<a class="btn" href="#/soundtrack">' + ico('note') + ' Soundtrack</a>' +
-      '<a class="btn" href="#/audit">' + ico('chart') + ' 112% audit</a>' +
-      '<button class="btn ghost" data-action="map-reset-layers">' + ico('layers') + ' Reset map layers</button></div></section>';
-    h += '<section class="card"><h3>About</h3><p class="small muted">Fan-made companion. Data from hollowknight.wiki (CC BY-SA). The map is an original schematic and marker positions are approximate. No official art or music is included. Not affiliated with Team Cherry.</p></section>';
+      '<a class="btn" href="#/audit">' + ico('chart') + ' 112% audit</a></div></section>';
+    h += '<section class="card"><h3>About</h3><p class="small muted">Fan-made companion. Data from hollowknight.wiki (CC BY-SA). No official art or music is included. Not affiliated with Team Cherry.</p></section>';
     return h;
   };
 
@@ -890,9 +775,32 @@
   };
 
   /* ------------------------------ save & audit ------------------------------ */
+  function syncStatusHtml() {
+    if (!sync || !sync.connected()) return '<span class="sync-pill off">Not connected — progress only on this device</span>';
+    var x = sync.status(), cls = { ok: 'ok', busy: 'busy', pending: 'busy', error: 'err' }[x.state] || 'busy';
+    return '<span class="sync-pill ' + cls + '">' + (x.state === 'error' ? '⚠ ' : x.state === 'ok' ? '✓ ' : '⟳ ') + esc(x.msg || 'Connected') + '</span>' +
+      (x.at ? ' <small class="muted">last sync ' + new Date(x.at).toLocaleString() + '</small>' : '');
+  }
+  function syncCard() {
+    var on = sync && sync.connected();
+    var h = '<section class="card sync-card"><h3>' + ico('loop') + ' Sync between devices</h3>';
+    h += '<p>See the <b>same progress</b> on your computer, phone and notebook. The site keeps a copy in a <b>private Gist</b> on your own GitHub account — no other server involved.</p>';
+    h += '<p id="syncStatus">' + syncStatusHtml() + '</p>';
+    if (on) {
+      h += '<div class="btn-row"><button class="btn btn-primary" data-action="sync-now">' + ico('loop') + ' Sync now</button><button class="btn ghost" data-action="sync-off">Disconnect this device</button></div>' +
+        '<p class="muted small">Syncs automatically when you open the site, when you come back to the tab, and a few seconds after every change. If two devices changed, the most recent save wins.</p>';
+    } else {
+      h += '<ol class="small sync-steps"><li>On GitHub: <a href="https://github.com/settings/tokens/new?scopes=gist&description=Hollow%20Knight%20Companion" target="_blank" rel="noopener">Settings → Developer settings → Tokens (classic) → Generate new token ↗</a>. Tick <b>only “gist”</b>, choose an expiration and generate.</li>' +
+        '<li>Copy the token (starts with <code>ghp_</code>) and paste it below.</li><li>Do the same on every device (the same token works everywhere).</li></ol>' +
+        '<div class="sync-form"><input id="syncToken" type="password" autocomplete="off" placeholder="ghp_…" aria-label="GitHub token with gist permission"><button class="btn btn-primary" data-action="sync-connect">Connect</button></div>' +
+        '<p class="muted small">The token is stored only in this browser and only allows reading/writing your Gists. You can revoke it on GitHub any time.</p>';
+    }
+    return h + '</section>';
+  }
   views.save = function () {
     var s = st();
     var h = '<header class="page-head"><h1>Save & Backup</h1><p class="lead">Everything is saved automatically in this browser (localStorage). Last change: ' + new Date(s.updatedAt).toLocaleString() + '</p></header>';
+    h += syncCard();
     h += '<section class="card"><h3>⚙ Update my save</h3><p>Quick editor for abilities, spells, Dream Nail, nail, resources and progress — the same data as the checklist.</p><button class="btn btn-primary" data-action="open-editor">⚙ UPDATE MY SAVE</button></section>';
     h += '<section class="card"><h3>📂 Import Hollow Knight save (PC)</h3>' +
       '<p>Choose your <code>user1.dat</code>…<code>user4.dat</code> file. It is decoded <b>locally in your browser</b> (nothing is uploaded) and you will see a preview before anything changes.</p>' +
@@ -1042,12 +950,8 @@
     else if (name === 'trackers') html = views.trackers(arg);
     else if (views[name]) html = views[name]();
     else html = views.dashboard();
-    document.body.classList.remove('map-fs');
-    applyArt();
     view.innerHTML = html;
-    HK.WorldMap.hydrate(view, mapCtx());
-    if (ui.focusPending && name === 'map') { HK.WorldMap.focusRegion(view, ui.focusPending); ui.focusPending = null; }
-    if (music) music.setContext(name === 'region' && E.regionById[arg] ? arg : name === 'map' && ui.mapRegion ? ui.mapRegion : st().currentRegion);
+    if (music) music.setContext(name === 'region' && E.regionById[arg] ? arg : st().currentRegion);
     document.querySelectorAll('[data-nav]').forEach(function (a) {
       var on = a.getAttribute('data-nav') === hash || (name === 'region' && a.getAttribute('data-nav') === 'regions');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -1104,6 +1008,10 @@
         if (confirm('Reset ALL progress? This cannot be undone (export a backup first).') && confirm('Are you sure? Everything returns to the initial state.')) { store.reset(); toast('Progress reset'); }
         break;
       case 'apply-import': applyImport(); break;
+      case 'panel-region': ui.panelRegion = id; ui.regionTab = 'overview'; ui.panelAll = false; render(true); break;
+      case 'sync-connect': { var tk = document.getElementById('syncToken'); if (sync && tk) { sync.connect(tk.value).then(function (r) { render(true); if (r !== 'error') toast('🔗 Sync connected', 'ok'); }); } break; }
+      case 'sync-now': if (sync) sync.sync().then(function () { render(true); }); break;
+      case 'sync-off': if (sync && confirm('Stop syncing on this device? Your progress stays here and in your GitHub Gist.')) { sync.disconnect(); render(true); } break;
       case 'region-tab': ui.regionTab = id; ui.panelAll = false; render(true); break;
       case 'panel-all': ui.panelAll = true; render(true); break;
       case 'mark-tab': {
@@ -1113,15 +1021,6 @@
         var mm = {}; list.forEach(function (i) { mm[i.id] = true; }); store.setChecks(mm, 'mark-tab'); toast('✓ ' + list.length + ' items marked', 'ok'); break;
       }
       case 'scroll-objective': { var ob = document.getElementById('objective'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
-      case 'map-region': ui.mapRegion = id; ui.focusPending = id; if (location.hash === '#/map') render(false); else location.hash = '#/map'; break;
-      case 'map-focus': HK.WorldMap.focusRegion(view, id); break;
-      case 'map-img-clear': if (confirm('Remove this image from this browser?')) HK.WorldMap.Images.clear(id || 'bg').then(function () { render(true); }); break;
-      case 'art-view': { var au = HK.WorldMap.Images.url('art'); if (au) openModal('Map of Hallownest', '<div class="art-view" data-action="art-zoom"><img src="' + au + '" alt="Map of Hallownest (your image)"></div><p class="muted small">Tap the image to zoom. Your own image — shown only on this device.</p>', 'art'); break; }
-      case 'art-zoom': t.classList.toggle('zoom'); break;
-      case 'map-img-reset': store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, { x: 0, y: 0, scale: 1, stretch: 1 })); break;
-      case 'map-poi': HK.WorldMap.focusPoi(view, id); window.scrollTo({ top: 0, behavior: 'smooth' }); break;
-      case 'map-clear': ui.mapRegion = null; render(true); break;
-      case 'map-reset-layers': store.setSetting('mapLayers', null); toast('Map layers reset'); break;
       case 'music-preview': if (music) { music.preview(id); setTimeout(function () { render(true); }, 300); } break;
       case 'music-remove': if (music && confirm('Remove your file for ' + (id === '__all' ? 'all regions' : regionName(id)) + '?')) music.removeFile(id).then(function () { render(true); toast('File removed'); }); break;
     }
@@ -1142,12 +1041,6 @@
     if (a === 'note') store.setNote(id, t.value);
     if (a === 'spell') { var v = Number(t.value); var m = {}; m[t.getAttribute('data-a')] = v >= 1; m[t.getAttribute('data-b')] = v >= 2; store.setChecks(m, 'spell'); }
     if (a === 'nail') { var lv = Number(t.value), mm = {}; for (var n = 1; n <= 4; n++) mm['nail-' + n] = n <= lv; store.setChecks(mm, 'nail'); }
-    if (a === 'map-img-file' || a === 'art-img-file') {
-      var mf = t.files && t.files[0]; if (!mf) return;
-      storeImage(a === 'art-img-file' ? 'art' : 'bg', mf); t.value = '';
-    }
-    if (a === 'map-img') store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, (function () { var o = {}; o[t.getAttribute('data-key')] = Number(t.value); return o; })()));
-    if (a === 'map-img-rooms') store.setSetting('mapImage', Object.assign({}, st().settings.mapImage || {}, { rooms: t.checked }));
     if (a === 'music-file') {
       var f = t.files && t.files[0]; if (!f || !music) return;
       if (f.type && f.type.indexOf('audio') !== 0) { toast('That does not look like an audio file.', 'warn'); return; }
@@ -1168,13 +1061,6 @@
     });
   });
   document.addEventListener('input', function (e) {
-    if (e.target.getAttribute('data-action') === 'map-img') {
-      var k = e.target.getAttribute('data-key'), val = Number(e.target.value), cur = Object.assign({}, st().settings.mapImage || {}); cur[k] = val;
-      var o = HK.WorldMap.MapImage.opts({ store: { get: function () { return { settings: { mapImage: cur } }; } } });
-      view.querySelectorAll('.wm-bgimg').forEach(function (im) { im.setAttribute('x', o.x); im.setAttribute('y', o.y); im.setAttribute('width', o.w * o.sx); im.setAttribute('height', o.h); im.setAttribute('opacity', o.opacity); });
-      var lab = view.querySelector('[data-mi-val="' + k + '"]'); if (lab) lab.textContent = val;
-      return;
-    }
     if (e.target.getAttribute('data-action') === 'local-search') {
       ui.query = e.target.value; var pos = e.target.selectionStart; render(true);
       var s2 = view.querySelector('.search-local'); if (s2) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (x) { /* noop */ } }
@@ -1245,11 +1131,12 @@
   document.querySelectorAll('i.ni[data-icon]').forEach(function (n) { n.outerHTML = HK.Icons.svg(n.getAttribute('data-icon'), n.className); });
   music = HK.Music.init(store, document.getElementById('music'), document.getElementById('ambience'), toast);
   music.ready.then(function () { if (lastRoute && lastRoute.name === 'soundtrack') render(true); });
-  HK.WorldMap.Images.load().then(function () { if (HK.WorldMap.Images.url('bg') || HK.WorldMap.Images.url('art')) render(true); });
+  sync = HK.Sync.init(store);
+  sync.onChange(function () { var el = document.getElementById('syncStatus'); if (el) el.innerHTML = syncStatusHtml(); });
   var audit = runAudit();
   if (audit.errors.length) console.error('[HK] 112% audit FAILED', audit.errors); else console.info('[HK] 112% audit passed — total', audit.total);
   particles();
   render(false);
   // expose for debugging/tests
-  window.HKApp = { store: store, engine: E, render: render, runAudit: runAudit, openItem: openItem, music: music, ui: ui };
+  window.HKApp = { store: store, engine: E, render: render, runAudit: runAudit, openItem: openItem, music: music, ui: ui, sync: function () { return sync; } };
 })();

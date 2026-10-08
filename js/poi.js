@@ -1,5 +1,5 @@
 /*
- * Hollow Knight Companion — POINTS OF INTEREST (map layer)
+ * Hollow Knight Companion — POINTS OF INTEREST (listed per region)
  * ---------------------------------------------------------------
  * Benches, Stag Stations, vendors & services, NPCs, hot springs, trams, Cornifer,
  * Lifeblood Cocoons and landmarks — grouped by region.
@@ -7,11 +7,8 @@
  * Stag Station, Cornifer, Lifeblood Cocoon, Hot Spring, Tram, and each area page;
  * cross-checked with game-checklists.com (benches).
  *
- * Bosses, Whispering Roots, Dreamers and collectibles are NOT duplicated here: the map
- * builds those markers from HK.DATA.ITEMS so they share the same done/undone state.
- *
- * Positions on the companion map are SCHEMATIC: the region is correct, the exact spot is not
- * (the official map is not copied).
+ * Bosses, Whispering Roots, Dreamers and collectibles are NOT duplicated here: they live in
+ * HK.DATA.ITEMS (with checkboxes). These lists are shown on each region page.
  */
 (function (root) {
   'use strict';
@@ -29,7 +26,6 @@
     cornifer: { label: 'Cornifer (maps)',  one: 'Cornifer',         color: '#e6e1d3' },
     cocoon:   { label: 'Lifeblood Cocoons', one: 'Lifeblood Cocoon', color: '#6fc8ff' },
     landmark: { label: 'Landmarks & gates', one: 'Landmark',        color: '#b9c3d6' },
-    grub:     { label: 'Grubs',            one: 'Grub',             color: '#9be37a' },
     item:     { label: 'Items left (checklist)', one: 'Item',       color: '#8fe0b4' }
   };
 
@@ -261,7 +257,7 @@
     TYPES: TYPES,
     LIST: L,
     BENCHES_TOTAL: 50, // wiki: 50 incl. 7 in the Dream Realm; each tram counts once
-    NOTE: 'Schematic positions — the region is right, the exact spot is approximate. Not the official map.'
+    NOTE: 'Listed by region (hollowknight.wiki).'
   };
   root.HK = root.HK || {};
   root.HK.POI = api;

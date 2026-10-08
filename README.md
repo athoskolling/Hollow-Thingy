@@ -30,9 +30,9 @@ hollow-knight-companion/
 ├── css/style.css           visual Hallownest, temas por região, responsivo, prefers-reduced-motion
 ├── js/
 │   ├── data.js             BASE DE DADOS (regiões, estágios do roadmap, 225 itens, farms, marcos da Seer)
-│   ├── poi.js              pontos de interesse do mapa (benches, stags, vendedores, NPCs, springs…)
+│   ├── poi.js              pontos de interesse por região (benches, stags, vendedores, NPCs, springs…)
 │   ├── icons.js / art.js   ícones e ilustrações SVG originais (procedurais)
-│   ├── worldmap.js         mapa interativo esquemático
+│   ├── sync.js             sincronização opcional entre aparelhos (Gist privado)
 │   ├── state.js            state manager único (localStorage, export/import JSON versionado, reset)
 │   ├── roadmap.js          engine: dependências, completion 112%, progresso por região, Next Objective
 │   ├── save-importer.js    leitor do save real do PC (user#.dat) — decodifica localmente
@@ -50,24 +50,32 @@ hollow-knight-companion/
     └── fixtures/user-test.dat
 ```
 
-## Mapa detalhado e arte (imagens suas)
+## Mesmo progresso no computador, celular e notebook
 
-Em **World Map → Your images** (ou Tools & Settings):
+O site fica online no GitHub Pages (https://athoskolling.github.io/Hollow-Thingy/). O que fica **local** é o progresso:
+cada navegador guarda o seu no `localStorage`. Para compartilhar entre aparelhos, o site sincroniza com um **Gist
+privado** na sua própria conta do GitHub (sem servidor nosso):
 
-- **Detailed map** — carregue uma imagem completa do mapa. Se ela tiver o layout 4712×3500 (mesma proporção, qualquer
-  resolução), tudo é calibrado automaticamente (`js/mapimg.js` guarda só números: áreas clicáveis, âncoras e a posição de
-  benches, stag stations, trams, roots, cocoons, hot springs e 42 grubs, obtidas casando os ícones da legenda da imagem).
-  Outras imagens podem ser alinhadas à mão.
-- Alterne **Clean** (mapa redesenhado) / **Detailed** (sua imagem) e use os atalhos **Everything · Stations · Benches ·
-  Vendors · Bosses · Collectibles · Image only**.
-- **Map of Hallownest art** — uma ilustração sua usada como fundo da página e/ou banner do Dashboard, com visualizador.
+1. Abra https://github.com/settings/tokens/new?scopes=gist (Settings → Developer settings → Personal access tokens →
+   Tokens (classic) → Generate new token). Marque **só “gist”**, escolha a validade e clique em *Generate token*.
+2. Copie o token (`ghp_…`).
+3. No site: **My Save → Sync between devices** → cole o token → **Connect**. Na primeira vez ele cria o Gist com o seu
+   progresso.
+4. Repita o passo 3 no celular e no notebook com o mesmo token — o site encontra o Gist e carrega o progresso.
 
-As imagens ficam só no IndexedDB do seu navegador; nunca vão para o repositório.
+Sincroniza ao abrir o site, ao voltar para a aba e alguns segundos depois de cada mudança; se dois aparelhos mudaram,
+vale o salvamento mais recente. O token fica só naquele navegador; dá para revogá-lo no GitHub a qualquer momento.
+Export/Import JSON continua disponível como backup manual.
+
+## Atualizar o site
+
+Qualquer `git push` para a branch `main` republica o GitHub Pages em ~1 minuto (Settings → Pages: *Deploy from a branch*,
+`main`, `/ (root)`).
 
 ## Trilha sonora por região
 
 O player (canto inferior esquerdo; no celular, barra flutuante embaixo) toca uma trilha **por região** e troca
-sozinho quando você muda de região, abre uma região ou seleciona uma no mapa (botão 📍 “follow”).
+sozinho quando você muda de região ou abre a página de uma região (botão 📍 “follow”).
 Ordem de prioridade para cada região:
 
 1. arquivo **seu** carregado na página **Soundtrack** para aquela região (fica só no IndexedDB do seu navegador — nunca é enviado nem publicado; funciona no celular);
@@ -78,18 +86,6 @@ Ordem de prioridade para cada região:
    (chuva na City of Tears, vento nos Howling Cliffs, gotas nos Royal Waterways, caixinha de música no White Palace…).
 
 Nenhuma faixa da trilha oficial é incluída, baixada ou redistribuída. Navegadores bloqueiam autoplay: clique ▶.
-
-## Mapa interativo
-
-`#/map` (e o painel do Dashboard): mapa **original redesenhado sala por sala** (`js/mapgeo.js`), seguindo a geografia
-real das áreas e sub-áreas (King's Pass, Soul Sanctum, Mantis Village, Distant Village, Palace Grounds…), mas sem copiar
-o mapa oficial nem o do MapGenie. Arrastar/zoom até 10×/pinça, busca de locais, tela cheia, “Mark as found” para
-benches/estações/vendedores (salvo no progresso) e “Hide found”,
-status por região (Completed / Current / Accessible / Locked) e camadas: Benches (50), Stag Stations (11),
-vendedores e serviços, bosses, Whispering Roots, Hot Springs, trams, Cornifer, Lifeblood Cocoons, NPCs, marcos e
-“itens que faltam”. Clique num marcador para ver detalhes e marcar o item. A região de cada ponto é exata; a posição
-dentro da região é aproximada. Dados em `js/poi.js` (fontes: hollowknight.wiki — Bench, Save Points, Stag Station,
-Cornifer, Lifeblood Cocoon, Hot Spring, Tram e páginas de área).
 
 ## Como alterar os dados
 
