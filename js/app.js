@@ -881,7 +881,12 @@
       case 'open-editor': openEditor(); break;
       case 'export': download('hollow-knight-companion-' + new Date().toISOString().slice(0, 10) + '.json', store.exportJSON()); toast('Progress exported', 'ok'); break;
       case 'reset':
-        if (confirm('Reset ALL progress? This cannot be undone (export a backup first).') && confirm('Are you sure? Everything returns to the initial state.')) { store.reset(); toast('Progress reset'); }
+        if (t && t.getAttribute('data-armed') !== '1') {
+          t.setAttribute('data-armed', '1'); t.textContent = '⚠ Tap again to erase ALL progress';
+          setTimeout(function () { if (t && t.isConnected) { t.removeAttribute('data-armed'); t.textContent = '⟲ Reset progress'; } }, 6000);
+        } else {
+          store.reset(); toast('Progress reset — new game', 'ok'); render(true);
+        }
         break;
       case 'apply-import': applyImport(); break;
       case 'sync-connect': { var tk = document.getElementById('syncToken'); if (sync && tk) { sync.connect(tk.value).then(function (r) { render(true); if (r !== 'error') toast('🔗 Sync connected', 'ok'); }); } break; }

@@ -9,11 +9,9 @@
   var VERSION = 1;
 
   function defaultState(DATA) {
-    var checks = {};
-    DATA.INITIAL_DONE.forEach(function (id) { checks[id] = true; });
     return {
       version: VERSION,
-      checks: checks,
+      checks: {},
       resources: { geo: 0, essence: 0, grubs: 0 },
       currentRegion: 'dirtmouth',
       settings: { spoilers: false, compact: false, hideOptional: false, hideDone: false },
