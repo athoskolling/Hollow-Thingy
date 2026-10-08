@@ -281,7 +281,8 @@
     // three numbers
     h += '<div class="kpis"><a class="kpi" href="#/audit"><span>Completion</span><b>' + c.value + '<small>/112%</small></b>' + bar(c.value / 112 * 100) + '</a>' +
       '<a class="kpi" href="#/checklist"><span>Checklist</span><b>' + cl.done + '<small>/' + cl.total + '</small></b>' + bar(cl.done / cl.total * 100) + '</a>' +
-      '<a class="kpi" href="#/trackers/geo"><span>Geo</span><b>' + fmt(s.resources.geo) + '</b><small class="muted">' + (E.nextNail() ? 'next nail ' + fmt(E.nextNail().geo) : 'nail maxed') + '</small></a></div>';
+      '<a class="kpi" href="#/trackers/geo"><span>Geo</span><b>' + fmt(s.resources.geo) + '</b><small class="muted">' + (E.nextNail() ? 'next nail ' + fmt(E.nextNail().geo) : 'nail maxed') + '</small></a>' +
+      '<a class="kpi" href="#/trackers/charms"><span>Charms</span><b>' + E.charmCount() + '<small>/40</small></b>' + bar(E.charmCount() / 40 * 100) + '</a></div>';
     // here + up next
     var here = E.whileHere(cur, nxt && nxt.item.id, 5);
     h += '<div class="duo">';
@@ -565,10 +566,48 @@
       itemList(itemsWhere(function (i) { return i.type === 'vessel' || /^vessel-upgrade/.test(i.id); }), { showRegion: true }) + '</section>';
     return h;
   };
+
+  /* ---- missing charms: what is left and how to get each one ---- */
+  function charmSoft(it) {
+    var soft = E.softIssues(it), geo = st().resources.geo;
+    if (it.cost && it.cost.geo && it.cost.geo > geo) soft.push({ key: 'geo', need: it.cost.geo, have: geo, label: fmt(it.cost.geo) + ' Geo' });
+    return soft;
+  }
+  function charmRow(it) {
+    var miss = E.missing(it), soft = charmSoft(it), s = st(), h = '';
+    var ready = !miss.length && !soft.length;
+    var cost = it.cost && it.cost.geo ? it.cost.geo : 0;
+    h += '<div class="mc' + (ready ? ' ready' : '') + '" id="mc-' + it.id + '"><div class="mc-head"><input type="checkbox" class="chk" data-action="toggle" data-id="' + it.id + '" aria-label="Mark ' + esc(it.name) + '">' +
+      '<div class="mc-title"><b>' + esc(it.name) + '</b> <span class="notch" title="' + it.notches + ' notch(es)">' + '◆'.repeat(it.notches || 0) + '</span>' +
+      '<span class="muted small"> · <a href="#/region/' + it.region + '">' + esc(regionName(it.region)) + '</a>' + (cost ? ' · ' + fmt(cost) + ' Geo' + (s.resources.geo >= cost ? ' <span class="pos">(you can afford it)</span>' : ' <span class="neg">(you have ' + fmt(s.resources.geo) + ')</span>') : '') + '</span></div></div>';
+    h += '<dl class="facts' + (s.settings.spoilers ? ' spoiler' : '') + '">';
+    h += '<dt>📍</dt><dd class="sp">' + esc(it.loc || '—') + '</dd>';
+    if (it.how) h += '<dt>🧭</dt><dd class="sp">' + esc(it.how) + (it.tip ? '<br><em>Tip: ' + esc(it.tip) + '</em>' : '') + '</dd>';
+    if (it.fn) h += '<dt>🎯</dt><dd>' + esc(it.fn) + '</dd>';
+    h += '</dl>';
+    if (miss.length) h += '<div class="mc-need"><span class="small muted">Needs first:</span>' + missingHtml(miss) + '</div>';
+    if (soft.length) h += '<div class="mc-need">' + soft.map(function (x) { return '<span class="soft no">needs ' + esc(x.label) + (x.key !== 'keys' && x.key !== 'charms' ? ' (you have ' + fmt(x.have) + ')' : '') + '</span>'; }).join(' ') + '</div>';
+    if (it.excludes && it.excludes.length) h += '<p class="small muted">Takes the same slot as ' + it.excludes.map(function (x) { return esc((byId[x] || {}).name || x); }).join(' / ') + ' — you only need one of them.</p>';
+    return h + '</div>';
+  }
+  function missingCharmsCard() {
+    var all = itemsWhere(function (i) { return i.type === 'charm' && !i.voidHeart && !i.optional; }).sort(function (a, b) { return (a.charmNum || 99) - (b.charmNum || 99); });
+    var left = all.filter(function (i) { return !E.isDone(i.id) && !E.isImplied(i.id) && !(i.excludes && i.excludes.some(E.isDone)); });
+    // Grimmchild / Carefree Melody count as one slot
+    var seen = {}; left = left.filter(function (i) { if (!i.charmNum) return true; if (seen[i.charmNum] && i.tags.indexOf('grimm') >= 0) return false; seen[i.charmNum] = true; return true; });
+    var ready = left.filter(function (i) { return !E.missing(i).length && !charmSoft(i).length; });
+    var later = left.filter(function (i) { return ready.indexOf(i) < 0; });
+    var h = '<section class="card missing-charms"><h3>🔎 Missing charms <span class="muted">' + left.length + ' left · ' + E.charmCount() + '/40 owned</span></h3>';
+    if (!left.length) return h + '<p class="pos">You have every charm. 🎉</p></section>';
+    h += '<p class="muted small">Tick a charm when you get it. “Ready now” means you already have everything it needs; the rest list what to do first.</p>';
+    h += '<h4>✅ Ready to get now <span class="muted">(' + ready.length + ')</span></h4>' + (ready.length ? ready.map(charmRow).join('') : '<p class="muted small">Nothing ready — see below for what to unlock.</p>');
+    h += '<h4>🔒 Needs something first <span class="muted">(' + later.length + ')</span></h4>' + (later.length ? later.map(charmRow).join('') : '<p class="muted small">—</p>');
+    return h + '</section>';
+  }
   trackers.charms = function () {
     var count = E.charmCount();
     var thresholds = [5, 10, 18, 25].map(function (n, idx) { return '<span class="soft ' + (count >= n ? 'ok' : 'no') + '">Salubra #' + (idx + 1) + ': ' + n + ' charms</span>'; }).join(' ');
-    var h = '<section class="card"><h3>✦ Charms <span class="muted">' + count + '/40 owned · ' + E.notches() + '/11 notches</span></h3><p>' + thresholds + '</p>' +
+    var h = missingCharmsCard() + '<section class="card"><h3>✦ Charms <span class="muted">' + count + '/40 owned · ' + E.notches() + '/11 notches</span></h3><p>' + thresholds + '</p>' +
       '<p class="muted small">Kingsoul only counts when both White Fragments are collected. Fragile charms do not count while Divine holds them. Grimmchild and Carefree Melody share one slot.</p>' +
       itemList(itemsWhere(function (i) { return i.type === 'charm' && !i.voidHeart; }).sort(function (a, b) { return (a.charmNum || 99) - (b.charmNum || 99); }), { showRegion: true }) + '</section>';
     h += '<section class="card"><h3>Charm Notches <span class="muted">3 + ' + (E.notches() - 3) + '/8</span></h3>' + itemList(itemsWhere(function (i) { return i.type === 'notch'; }), { showRegion: true }) + '</section>';

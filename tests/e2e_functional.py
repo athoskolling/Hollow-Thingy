@@ -113,6 +113,13 @@ with sync_playwright() as p:
     check('region page has categories', page.locator('.card h3').count() >= 4)
     check('crystal theme applied', js(page, "document.body.dataset.theme") == 'crystal')
 
+    # --- missing charms list
+    page.goto(BASE + '#/trackers/charms'); page.wait_for_timeout(300)
+    n_left = page.locator('.missing-charms .mc').count()
+    check('missing-charms lists charms with how-to', n_left >= 30 and page.locator('.missing-charms .mc dd').count() > n_left)
+    page.locator('.missing-charms .mc input.chk').first.click(); page.wait_for_timeout(200)
+    check('ticking a missing charm removes it from the list', page.locator('.missing-charms .mc').count() == n_left - 1)
+
     # --- geo / nail readiness
     js(page, "HKApp.store.setResource('geo', 2500)")
     js(page, "HKApp.store.setChecks({'ore-crystal-peak':true,'ore-basin':true,'ore-seer':true})")
