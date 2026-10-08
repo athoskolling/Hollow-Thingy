@@ -99,22 +99,61 @@
     cache.hero = s;
     return s;
   }
-  /* Full-page backdrop: an original, region-tinted night landscape (far/mid/near silhouettes, glow, motes). */
+  /* Full-page backdrop: an ORIGINAL Hallownest-style scene — a great gothic hall seen from the ground, with
+     colonnade, light shafts, hanging lanterns, fog, a lone bench under a lamp. Tinted per region. */
+  function archPath(x, w, base, h) { // pointed arch opening (hole), x = left edge
+    var top = base - h, c = x + w / 2;
+    return 'M' + x + ' ' + base + ' L' + x + ' ' + top + ' Q' + x + ' ' + (top - w * 0.55) + ' ' + c + ' ' + (top - w * 0.95) + ' Q' + (x + w) + ' ' + (top - w * 0.55) + ' ' + (x + w) + ' ' + top + ' L' + (x + w) + ' ' + base + 'Z ';
+  }
   function backdrop(theme) {
-    var key = 'bd-' + theme;
+    var key = 'bd2-' + theme;
     if (cache[key]) return cache[key];
-    var W = 1600, H = 900, kind = KIND[theme] || 'spires', t = TINT[theme] || TINT.city, r = rng(key);
-    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' +
-      '<defs><linearGradient id="bs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + t[0] + '"/><stop offset=".65" stop-color="#070b16"/><stop offset="1" stop-color="#03050a"/></linearGradient>' +
-      '<radialGradient id="bg1" cx="72%" cy="22%" r="48%"><stop offset="0" stop-color="' + t[1] + '" stop-opacity=".5"/><stop offset="1" stop-color="' + t[1] + '" stop-opacity="0"/></radialGradient>' +
-      '<radialGradient id="bg2" cx="50%" cy="100%" r="70%"><stop offset="0" stop-color="' + t[1] + '" stop-opacity=".16"/><stop offset="1" stop-color="' + t[1] + '" stop-opacity="0"/></radialGradient></defs>' +
-      '<rect width="' + W + '" height="' + H + '" fill="url(#bs)"/><rect width="' + W + '" height="' + H + '" fill="url(#bg1)"/><rect width="' + W + '" height="' + H + '" fill="url(#bg2)"/>' +
-      '<circle cx="1150" cy="190" r="70" fill="' + t[1] + '" opacity=".18"/><circle cx="1150" cy="190" r="46" fill="' + t[1] + '" opacity=".22"/>';
-    for (var i = 0; i < 90; i++) s += '<circle cx="' + (r() * W).toFixed(0) + '" cy="' + (r() * H * 0.7).toFixed(0) + '" r="' + (0.5 + r() * 1.5).toFixed(1) + '" fill="' + t[1] + '" opacity="' + (0.15 + r() * 0.55).toFixed(2) + '"/>';
-    s += layer(kind, r, W, H - 60, H * 0.95, t[1], 0.10);
-    s += layer(kind, r, W, H - 20, H * 0.72, '#0b1224', 0.8);
-    for (i = 0; i < 26; i++) { var lx = r() * W, ly = H * 0.5 + r() * H * 0.4; s += '<circle cx="' + lx.toFixed(0) + '" cy="' + ly.toFixed(0) + '" r="' + (1.5 + r() * 2).toFixed(1) + '" fill="#ffd98a" opacity="' + (0.4 + r() * 0.5).toFixed(2) + '"/><circle cx="' + lx.toFixed(0) + '" cy="' + ly.toFixed(0) + '" r="14" fill="#ffd98a" opacity=".07"/>'; }
-    s += layer(kind, r, W, H + 6, H * 0.46, '#04060b', 0.97) + '</svg>';
+    var W = 1600, H = 900, kind = KIND[theme] || 'spires', t = TINT[theme] || TINT.city, r = rng(key), i, x, g = t[1], s;
+    s = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' +
+      '<defs><linearGradient id="bs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03050a"/><stop offset=".35" stop-color="' + t[0] + '"/><stop offset="1" stop-color="#05080f"/></linearGradient>' +
+      '<radialGradient id="bg1" cx="50%" cy="46%" r="42%"><stop offset="0" stop-color="' + g + '" stop-opacity=".55"/><stop offset=".5" stop-color="' + g + '" stop-opacity=".16"/><stop offset="1" stop-color="' + g + '" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="bsh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + g + '" stop-opacity=".28"/><stop offset="1" stop-color="' + g + '" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="bfog" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + g + '" stop-opacity="0"/><stop offset=".5" stop-color="' + g + '" stop-opacity=".16"/><stop offset="1" stop-color="' + g + '" stop-opacity="0"/></linearGradient></defs>' +
+      '<rect width="' + W + '" height="' + H + '" fill="url(#bs)"/><rect width="' + W + '" height="' + H + '" fill="url(#bg1)"/>';
+    for (i = 0; i < 70; i++) s += '<circle cx="' + (r() * W).toFixed(0) + '" cy="' + (r() * H * 0.55).toFixed(0) + '" r="' + (0.5 + r() * 1.3).toFixed(1) + '" fill="' + g + '" opacity="' + (0.15 + r() * 0.5).toFixed(2) + '"/>';
+    // far silhouettes of the region
+    s += layer(kind, r, W, H - 120, H * 0.7, g, 0.12);
+    // light shafts falling from above
+    for (i = 0; i < 5; i++) { var sx = 260 + i * 270 + r() * 60, sw = 50 + r() * 70; s += '<polygon points="' + sx + ',0 ' + (sx + sw) + ',0 ' + (sx + sw * 2.4 + 120) + ',' + H + ' ' + (sx + 60) + ',' + H + '" fill="url(#bsh)" opacity="' + (0.35 + r() * 0.4).toFixed(2) + '"/>'; }
+    // far colonnade (small pointed arches, wall with holes)
+    var d = 'M0 0 H' + W + ' V' + H + ' H0Z ', n = 9, aw = 96, gap = (W - n * aw) / (n + 1);
+    for (i = 0; i < n; i++) d += archPath(gap + i * (aw + gap), aw, H * 0.86, H * 0.36);
+    s += '<path fill-rule="evenodd" d="' + d + '" fill="#0a1020" opacity=".72"/>';
+    // fog band
+    s += '<rect y="' + (H * 0.5) + '" width="' + W + '" height="' + (H * 0.34) + '" fill="url(#bfog)"/>';
+    // hanging lanterns on chains
+    for (i = 0; i < 9; i++) {
+      var lx = 150 + i * 165 + r() * 70, ly = 150 + r() * 260;
+      s += '<line x1="' + lx.toFixed(0) + '" y1="0" x2="' + lx.toFixed(0) + '" y2="' + ly.toFixed(0) + '" stroke="#0b0f1a" stroke-width="2" opacity=".9"/>' +
+        '<circle cx="' + lx.toFixed(0) + '" cy="' + ly.toFixed(0) + '" r="46" fill="#ffd98a" opacity=".07"/><circle cx="' + lx.toFixed(0) + '" cy="' + ly.toFixed(0) + '" r="20" fill="#ffd98a" opacity=".12"/>' +
+        '<path d="M' + (lx - 7) + ' ' + ly + ' l7 -12 l7 12 l-4 14 h-6z" fill="#ffe3a3" opacity=".9"/>';
+    }
+    // great foreground arch frame: dark wall with one huge pointed opening
+    var big = 'M0 0 H' + W + ' V' + H + ' H0Z ' + archPath(170, W - 340, H + 2, H * 0.64);
+    s += '<path fill-rule="evenodd" d="' + big + '" fill="#03050a" opacity=".96"/>';
+    // pillar rims catching light
+    s += '<path d="M170 ' + H + ' V' + (H * 0.36) + ' Q170 ' + (H * 0.04) + ' ' + (W / 2) + ' ' + (-H * 0.1) + ' Q' + (W - 170) + ' ' + (H * 0.04) + ' ' + (W - 170) + ' ' + (H * 0.36) + ' V' + H + '" fill="none" stroke="' + g + '" stroke-opacity=".28" stroke-width="3"/>';
+    // carved rings on the pillars
+    for (i = 0; i < 6; i++) { var py = H * 0.4 + i * 70; s += '<rect x="150" y="' + py + '" width="40" height="5" fill="' + g + '" opacity=".16"/><rect x="' + (W - 190) + '" y="' + py + '" width="40" height="5" fill="' + g + '" opacity=".16"/>'; }
+    // stalactites from the top of the opening
+    for (x = 200; x < W - 200; x += 22 + r() * 40) { var sh = 12 + r() * 70 * (1 - Math.abs(x - W / 2) / W * 1.4); s += '<path d="M' + x + ' 0 L' + (x + 9) + ' ' + sh.toFixed(0) + ' L' + (x + 18) + ' 0Z" fill="#03050a" opacity=".92"/>'; }
+    // ground: region silhouettes + floor
+    s += layer(kind, r, W, H + 6, H * 0.34, '#04060b', 0.97);
+    s += '<rect y="' + (H - 38) + '" width="' + W + '" height="40" fill="#020308"/><rect y="' + (H - 40) + '" width="' + W + '" height="2" fill="' + g + '" opacity=".22"/>';
+    // lamp post + bench (generic wrought-iron, left of centre)
+    var bx = 360, by = H - 40;
+    s += '<circle cx="' + (bx + 120) + '" cy="' + (by - 290) + '" r="120" fill="#ffd98a" opacity=".07"/><circle cx="' + (bx + 120) + '" cy="' + (by - 290) + '" r="44" fill="#ffd98a" opacity=".14"/>' +
+      '<path d="M' + (bx + 116) + ' ' + by + ' V' + (by - 270) + ' h8 V' + by + 'Z M' + (bx + 106) + ' ' + (by - 270) + ' h28 l-4 -26 h-20z M' + (bx + 112) + ' ' + (by - 296) + ' q8 -22 16 0z" fill="#010205"/>' +
+      '<path d="M' + (bx + 112) + ' ' + (by - 278) + ' h16 v8 h-16z" fill="#ffe3a3"/>' +
+      '<path d="M' + bx + ' ' + (by - 58) + ' h100 v7 h-100z M' + (bx + 4) + ' ' + (by - 100) + ' q-8 0 -8 -10 h108 q0 10 -8 10z M' + (bx + 8) + ' ' + (by - 50) + ' v50 h8 v-50z M' + (bx + 84) + ' ' + (by - 50) + ' v50 h8 v-50z M' + (bx + 4) + ' ' + (by - 110) + ' v60 h6 v-60z M' + (bx + 90) + ' ' + (by - 110) + ' v60 h6 v-60z" fill="#010205" stroke="' + g + '" stroke-opacity=".35" stroke-width="1.5"/>';
+    // drifting motes in front
+    for (i = 0; i < 40; i++) s += '<circle cx="' + (r() * W).toFixed(0) + '" cy="' + (H * 0.2 + r() * H * 0.7).toFixed(0) + '" r="' + (1 + r() * 2.2).toFixed(1) + '" fill="' + g + '" opacity="' + (0.2 + r() * 0.5).toFixed(2) + '"/>';
+    s += '</svg>';
     cache[key] = s;
     return s;
   }
