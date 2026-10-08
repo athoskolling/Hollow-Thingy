@@ -186,3 +186,6 @@ Nenhum asset oficial é incluído.
 
 ## Créditos do fundo
 As imagens em `assets/bg/` são artes de fãs / promocionais de Hollow Knight (© Team Cherry e respectivos artistas), escolhidas pelo dono do site e usadas apenas como papel de parede num projeto pessoal, sem fins lucrativos e sem afiliação. Para trocar: substitua os arquivos `bg-01.jpg … bg-09.jpg`; o intervalo fica em `INTERVAL` no `js/bg.js`.
+
+## Página Map
+`#/map` é um **esquema original** de Hallownest (js/atlas.js): regiões posicionadas aproximadamente, ligadas às vizinhas, com camadas (progresso, itens/charms/bosses que faltam, Stag Stations, Benches). Não é o mapa oficial nem está em escala; a página linka um mapa interativo da comunidade (Map Genie) para o mapa detalhado do jogo. Nenhuma imagem do mapa oficial é hospedada.

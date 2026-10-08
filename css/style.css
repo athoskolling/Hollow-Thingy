@@ -739,3 +739,21 @@ html, body { cursor: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2
 a, button, summary, label, select, [data-action], [role=tab], .chip, .item-title, input[type=checkbox], input[type=file], input[type=range] { cursor: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2211%22 fill=%22%239fd2ff%22 fill-opacity=%22.12%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%227.5%22 fill=%22%239fd2ff%22 fill-opacity=%22.25%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%224.2%22 fill=%22%23f6f8fc%22 stroke=%22%230b1020%22 stroke-width=%221%22/%3E%3Ccircle cx=%2214.6%22 cy=%2214.6%22 r=%221.3%22 fill=%22%23fff%22/%3E%3Ccircle cx=%2216%22 cy=%2216%22 r=%2210.5%22 fill=%22none%22 stroke=%22%23e7c97a%22 stroke-opacity=%22.7%22 stroke-width=%221%22 stroke-dasharray=%222 3%22/%3E%3C/svg%3E") 16 16, pointer; }
 input[type=text], input[type=search], input[type=password], input[type=number], textarea { cursor: text; }
 @media (hover: none), (pointer: coarse) { html, body, a, button, [data-action] { cursor: auto; } }
+
+/* atlas (schematic map) */
+.atlas { padding: 10px; }
+.atlas-svg { width: 100%; height: auto; display: block; }
+.atl-link { stroke: var(--line-2); stroke-width: 2; stroke-dasharray: 4 6; opacity: .7; }
+.atl-node { cursor: pointer; outline: none; }
+.atl-shape { stroke: var(--c); stroke-opacity: .55; stroke-width: 1.5; transition: fill-opacity .2s, stroke-opacity .2s; }
+.atl-node:hover .atl-shape, .atl-node:focus-visible .atl-shape { stroke-opacity: 1; stroke-width: 2.5; }
+.atl-node.sel .atl-shape { stroke: var(--white); stroke-opacity: 1; stroke-width: 3; }
+.atl-node.locked .atl-shape { stroke-dasharray: 6 5; }
+.atl-node.complete .atl-shape { stroke: var(--ok); stroke-opacity: 1; }
+.atl-name { fill: var(--white); font: 600 17px var(--font-display); letter-spacing: .04em; paint-order: stroke; stroke: rgba(3,5,10,.85); stroke-width: 4px; pointer-events: none; }
+.atl-badge { fill: var(--text); font: 700 15px var(--font-body); paint-order: stroke; stroke: rgba(3,5,10,.85); stroke-width: 3px; pointer-events: none; }
+.atl-node.complete .atl-badge { fill: var(--ok); }
+.atlas-layers { margin-bottom: 12px; flex-wrap: wrap; }
+.atlas-legend { margin: 8px 6px 2px; }
+.atlas-detail .atlas-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+@media (max-width: 700px) { .atlas { overflow-x: auto; -webkit-overflow-scrolling: touch; } .atlas-svg { min-width: 700px; } }

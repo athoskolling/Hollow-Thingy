@@ -688,6 +688,51 @@
     return '<header class="page-head"><h1>Trackers</h1></header>' + trackerTabs(tab) + trackers[tab]();
   };
 
+
+  /* ------------------------------ map (schematic atlas) ------------------------------ */
+  var MAP_LAYERS = [['progress', 'Progress'], ['items', 'Items left'], ['charms', 'Charms left'], ['bosses', 'Bosses left'], ['stag', 'Stag Stations'], ['bench', 'Benches']];
+  function poiCount(region, type) { return (HK.POI ? HK.POI.LIST : []).filter(function (p) { return p.region === region && p.type === type; }).length; }
+  function regionStats(r) {
+    var p = E.regionProgress(r.id), items = DATA.ITEMS.filter(function (i) { return i.region === r.id && !i.derived && !i.beyond; });
+    var bosses = items.filter(function (i) { return i.type === 'boss'; }), charms = items.filter(function (i) { return i.type === 'charm' && !i.voidHeart && !i.optional; });
+    return { p: p, itemsLeft: p.all - p.allDone, bossLeft: bosses.filter(function (i) { return !E.isDone(i.id); }).length, bossTotal: bosses.length,
+      charmLeft: charms.filter(function (i) { return !E.isDone(i.id); }).length, charmTotal: charms.length, stag: poiCount(r.id, 'stag'), bench: poiCount(r.id, 'bench') };
+  }
+  var mapLayer = 'progress';
+  views.map = function (sel) {
+    if (!E.regionById[sel]) sel = null;
+    var stats = {}, maxv = 1, vals = {};
+    DATA.REGIONS.forEach(function (r) {
+      var x = regionStats(r); stats[r.id] = x;
+      vals[r.id] = mapLayer === 'items' ? x.itemsLeft : mapLayer === 'charms' ? x.charmLeft : mapLayer === 'bosses' ? x.bossLeft : mapLayer === 'stag' ? x.stag : mapLayer === 'bench' ? x.bench : x.p.pct;
+      if (mapLayer !== 'progress' && vals[r.id] > maxv) maxv = vals[r.id];
+    });
+    var m = {};
+    DATA.REGIONS.forEach(function (r) {
+      var x = stats[r.id], v = vals[r.id], tint = (HK.Art && HK.Art.TINT[r.theme]) || ['#111', '#9fd2ff'];
+      m[r.id] = { name: r.name, short: shortRegion(r.id), color: tint[1],
+        level: mapLayer === 'progress' ? v / 100 : v / maxv,
+        badge: mapLayer === 'progress' ? v + '%' : String(v), state: x.p.complete && mapLayer === 'progress' ? 'complete' : !x.p.accessible ? 'locked' : '',
+        sub: x.p.mainDone + '/' + x.p.main + ' main items · ' + v + (mapLayer === 'progress' ? '%' : '') };
+    });
+    var h = '<header class="page-head"><h1>Map</h1><p class="lead">A schematic of Hallownest — regions roughly where they sit, not to scale. Pick a region to see its progress.</p></header>';
+    h += '<div class="tabs atlas-layers" role="tablist">' + MAP_LAYERS.map(function (l) { return '<button role="tab" class="tab' + (l[0] === mapLayer ? ' on' : '') + '" data-action="map-layer" data-id="' + l[0] + '">' + l[1] + '</button>'; }).join('') + '</div>';
+    h += '<section class="card atlas">' + HK.Atlas.svg(m, sel) +
+      '<p class="muted small atlas-legend">Brighter = ' + (mapLayer === 'progress' ? 'more complete' : 'more') + ' · dashed outline = not accessible yet · ✓ = region finished. Original diagram, not the official map.</p></section>';
+    if (sel) {
+      var r = E.regionById[sel], x = stats[sel];
+      h += '<section class="card atlas-detail"><div class="card-title"><h3>' + ico('pin') + ' ' + esc(r.name) + '</h3><a class="btn small" href="#/region/' + sel + '">Open region →</a></div>' +
+        bar(x.p.pct) + '<p class="muted small">' + x.p.mainDone + '/' + x.p.main + ' main items · ' + x.p.allDone + '/' + x.p.all + ' including optional</p>' +
+        '<p>' + esc(r.access || '') + '</p>' +
+        '<div class="atlas-facts"><span class="soft">Bosses left <b>' + x.bossLeft + '/' + x.bossTotal + '</b></span><span class="soft">Charms left <b>' + x.charmLeft + '/' + x.charmTotal + '</b></span>' +
+        '<span class="soft">Stag Stations <b>' + x.stag + '</b></span><span class="soft">Benches <b>' + x.bench + '</b></span></div>' +
+        '<div class="btn-row"><button class="btn small" data-action="set-region" data-id="' + sel + '">I am in ' + esc(shortRegion(sel)) + '</button></div></section>';
+    }
+    h += '<section class="card"><h3>' + ico('map') + ' Want the full in-game map?</h3><p class="muted small">This page is a simple diagram built for tracking. For the detailed official-style map with every pin, use a community interactive map:</p>' +
+      '<div class="btn-row"><a class="btn small" href="https://mapgenie.io/hollow-knight/maps/hallownest" target="_blank" rel="noopener">Map Genie — interactive Hallownest map ↗</a></div></section>';
+    return h;
+  };
+
   /* ------------------------------ save & audit ------------------------------ */
   function syncStatusHtml() {
     if (!sync || !sync.connected()) return '<span class="sync-pill off">Not connected — progress only on this device</span>';
@@ -862,13 +907,14 @@
     document.body.setAttribute('data-theme', (E.regionById[st().currentRegion] || {}).theme || 'crossroads');
     if (name === 'region') html = views.region(arg);
     else if (name === 'trackers') html = views.trackers(arg);
+    else if (name === 'map') html = views.map(arg);
     else if (views[name]) html = views[name]();
     else html = views.dashboard();
     view.innerHTML = html;
     if (music) music.setContext(name === 'region' && E.regionById[arg] ? arg : st().currentRegion);
     document.querySelectorAll('[data-nav]').forEach(function (a) {
       var nv = a.getAttribute('data-nav');
-      var on = nv === hash || (name === 'region' && nv === 'regions') || (name === 'trackers' && nv === 'trackers') || (name === 'audit' && nv === 'settings');
+      var on = nv === hash || (name === 'region' && nv === 'regions') || (name === 'trackers' && nv === 'trackers') || (name === 'map' && nv === 'map') || (name === 'audit' && nv === 'settings');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     return { name: name, arg: arg };
@@ -902,6 +948,7 @@
       case 'open-item': e.preventDefault(); openItem(id); break;
       case 'close-modal': closeModal(); break;
       case 'pin': store.setPinned(st().pinned === id ? null : id); break;
+      case 'map-layer': mapLayer = id; render(true); break;
       case 'set-region': store.setRegion(id); toast('📍 ' + regionName(id)); break;
       case 'mark-prereqs': {
         var map = {}; E.missing(byId[id], { noRegion: true }).forEach(function (g) { if (g.mode === 'all') g.ids.forEach(function (x) { map[x] = true; }); });

@@ -193,7 +193,11 @@ with sync_playwright() as p:
 
     # --- V2: no world map; regions card, region panel, per-region soundtrack
     page.goto(BASE + '#/map'); page.wait_for_timeout(300)
-    check('no world map anywhere', page.locator('.wm, .wm-svg, [data-nav=map]').count() == 0 and js(page, "typeof HK.WorldMap") == 'undefined')
+    check('Map page: 18 regions, schematic (no official map image)', page.locator('.atl-node').count() == 18 and page.locator('.atlas img').count() == 0 and js(page, "typeof HK.WorldMap") == 'undefined')
+    page.locator('.atl-node').first.click(); page.wait_for_timeout(200)
+    check('Map page: clicking a region shows its details', page.locator('.atlas-detail').count() == 1)
+    page.click('[data-action=map-layer][data-id=charms]'); page.wait_for_timeout(200)
+    check('Map page: layers switch', page.locator('.atlas-layers .tab.on').inner_text() == 'Charms left')
     page.goto(BASE + '#/dashboard'); page.wait_for_timeout(300)
     check('regions card lists 18 regions', page.locator('.rg-row').count() == 18)
     page.click('.rg-row[href="#/region/deepnest"]'); page.wait_for_timeout(300)
