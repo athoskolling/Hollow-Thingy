@@ -1,5 +1,0 @@
-Put your own legally obtained audio file here, named exactly:
-
-    ambience.mp3
-
-The companion never downloads or ships the official soundtrack.

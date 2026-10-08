@@ -222,7 +222,7 @@
       : '<input type="checkbox" class="chk" data-action="toggle" data-id="' + it.id + '"' + (done ? ' checked' : '') + ' aria-label="Mark ' + esc(it.name) + '">';
     var sub = opts.sub || (TYPE_LABEL[it.type] || it.type) + (opts.showRegion ? ' · ' + regionName(it.region) : '');
     var badge = it.voidHeart && E.isVoidHeartLocked() ? '<span class="badge danger">🔒</span>' : implied ? '<span class="badge">implied</span>' : miss ? '<span class="badge muted">locked</span>' : '';
-    return '<div class="rrow' + (done ? ' done' : '') + (it.optional ? ' optional' : '') + '" data-id="' + it.id + '">' + input + typeIco(it) +
+    return '<div class="rrow' + (done ? ' done' : '') + (it.optional ? ' optional' : '') + '"' + (opts.id ? ' id="item-' + it.id + '"' : '') + ' data-id="' + it.id + '">' + input + typeIco(it) +
       '<button class="rr-main" data-action="open-item" data-id="' + it.id + '"><b>' + esc(it.name) + '</b><small>' + esc(sub) + '</small></button>' + badge +
       (pctLabel(it) ? '<span class="pct">' + pctLabel(it) + '</span>' : '') +
       '<button class="icon-btn rr-go" data-action="open-item" data-id="' + it.id + '" aria-label="Details: ' + esc(it.name) + '">' + ico('chevron') + '</button></div>';
@@ -233,195 +233,76 @@
       '<div class="rr-main static"><b>' + esc(p.name) + '</b><small>' + esc(T.one + (p.sub ? ' · ' + p.sub : '') + (p.cost ? ' · ' + p.cost + ' Geo' : '') + (p.note ? ' — ' + p.note : '')) + '</small></div>' +
       (p.item && byId[p.item] ? '<button class="icon-btn rr-go" data-action="open-item" data-id="' + p.item + '" aria-label="Details">' + ico('chevron') + '</button>' : '') + '</div>';
   }
-  var PANEL_TABS = [
-    ['overview', 'Overview'],
-    ['items', 'Items', function (i) { return ['ability', 'spell', 'nailart', 'charm', 'key', 'item', 'dream', 'nail', 'access', 'grimm', 'dreamer', 'ending', 'godhome'].indexOf(i.type) >= 0; }],
-    ['bosses', 'Bosses', function (i) { return ['boss', 'warrior', 'dreamboss', 'colosseum'].indexOf(i.type) >= 0; }],
-    ['secrets', 'Secrets', function (i) { return ['mask', 'vessel', 'ore', 'root', 'notch'].indexOf(i.type) >= 0; }],
-    ['npcs', 'NPCs']
-  ];
-  function regionTabItems(id, tab) {
-    var items = E.regionItems(id).filter(function (i) { return !i.derived; });
-    var t = PANEL_TABS.filter(function (x) { return x[0] === tab; })[0];
-    if (tab === 'overview') {
-      return items.filter(function (i) { return !i.beyond; }).sort(function (a, b) {
-        return (E.isDone(a.id) ? 1 : 0) - (E.isDone(b.id) ? 1 : 0) || (a.optional ? 1 : 0) - (b.optional ? 1 : 0) || (b.goal ? 1 : 0) - (a.goal ? 1 : 0) ||
-          (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0) || (b.completion || 0) - (a.completion || 0);
-      });
-    }
-    if (tab === 'npcs') return items.filter(function (i) { return i.type === 'npc'; });
-    return items.filter(t[2]);
-  }
-  function regionNpcPois(id) { return HK.POI.LIST.filter(function (p) { return p.region === id && (p.type === 'npc' || p.type === 'vendor'); }); }
-  function regionPanel(id) {
-    var r = E.regionById[id], p = E.regionProgress(id), tab = ui.regionTab || 'overview', s = st();
-    var h = '<section class="card rpanel theme-' + r.theme + '" aria-label="Region: ' + esc(r.name) + '">';
-    h += '<div class="rp-art">' + regionArt(r) + '<div class="rp-head"><h3 class="rp-title">' + ico('compass') + esc(r.name) + '</h3>' +
-      '<div class="rp-prog"><span>Progress</span><b>' + p.mainDone + ' / ' + p.main + '</b>' + bar(p.pct) + '<em>' + p.pct + '%</em></div></div></div>';
-    h += '<div class="rp-tabs" role="tablist">' + PANEL_TABS.map(function (t) {
-      var list = t[0] === 'npcs' ? null : regionTabItems(id, t[0]);
-      var cnt = t[0] === 'overview' ? '' : t[0] === 'npcs' ? ' (' + regionNpcPois(id).length + ')' : ' (' + list.filter(function (i) { return E.isDone(i.id); }).length + '/' + list.length + ')';
-      return '<button role="tab" class="rp-tab' + (tab === t[0] ? ' on' : '') + '" aria-selected="' + (tab === t[0]) + '" data-action="region-tab" data-id="' + t[0] + '">' + t[1] + cnt + '</button>';
-    }).join('') + '</div>';
-    h += '<div class="rp-list">';
-    if (tab === 'npcs') {
-      var np = regionNpcPois(id), ni = regionTabItems(id, 'npcs');
-      h += (ni.map(function (i) { return rrow(i); }).join('') + np.map(poiRow).join('')) || '<p class="muted empty">No NPCs recorded here.</p>';
-    } else {
-      var list = regionTabItems(id, tab), lim = ui.panelAll ? 999 : 7;
-      h += list.slice(0, lim).map(function (i) { return rrow(i); }).join('') || '<p class="muted empty">Nothing here.</p>';
-      if (list.length > lim) h += '<button class="link-more" data-action="panel-all">+ ' + (list.length - lim) + ' more</button>';
-    }
-    h += '</div><div class="rp-foot"><a class="btn small" href="#/region/' + id + '">View Region Guide ' + ico('arrow') + '</a>' +
-      (s.currentRegion !== id ? '<button class="btn small ghost" data-action="set-region" data-id="' + id + '">' + ico('pin') + ' I am here</button>' : '') +
-      (tab !== 'npcs' ? '<button class="btn small ghost" data-action="mark-tab" data-id="' + id + '">Mark All as Complete</button>' : '') + '</div>';
-    return h + '</section>';
-  }
-  function quickStats() {
-    var s = st(), sh = E.shards(), v = E.vessels(), o = E.ore(), mv = ['mothwing-cloak', 'mantis-claw', 'crystal-heart', 'monarch-wings', 'ismas-tear', 'shade-cloak', 'kings-brand'];
-    var sp = ['vengeful-spirit', 'shade-soul', 'desolate-dive', 'descending-dark', 'howling-wraiths', 'abyss-shriek'], na = ['great-slash', 'dash-slash', 'cyclone-slash'];
-    function row(icon, label, val, href) { return '<a class="qs" href="' + href + '">' + ico(icon) + '<span>' + label + '</span><b>' + val + '</b></a>'; }
-    return '<section class="card rail-card"><h3>Quick Stats</h3><div class="qs-list">' +
-      row('geo', 'Geo', fmt(s.resources.geo), '#/trackers/geo') +
-      row('ore', 'Pale Ore', o.collected + ' / 6', '#/trackers/nail') +
-      row('mask', 'Mask Shards', sh.shards + ' / 16 <small>(' + sh.masks + ')</small>', '#/trackers/masks') +
-      row('vessel', 'Vessel Fragments', v.fragments + ' / 9 <small>(' + v.vessels + ')</small>', '#/trackers/masks') +
-      row('essence', 'Essence', fmt(s.resources.essence) + ' / 2400', '#/trackers/essence') +
-      row('charm', 'Charms', E.charmCount() + ' / 40', '#/trackers/charms') +
-      row('notch', 'Charm Notches', E.notches(), '#/trackers/charms') +
-      row('nail', 'Nail', E.NAIL_NAMES[E.nailLevel()], '#/trackers/nail') +
-      row('wing', 'Movement', mv.filter(E.isDone).length + ' / ' + mv.length, '#/trackers/abilities') +
-      row('spell', 'Spells', sp.filter(E.isDone).length + ' / ' + sp.length, '#/trackers/abilities') +
-      row('trial', 'Nail Arts', na.filter(E.isDone).length + ' / 3', '#/trackers/nailarts') +
-      row('grub', 'Grubs', s.resources.grubs + ' / 46', '#/trackers/essence') +
-      '</div></section>';
-  }
-  function routeStrip() {
+  function routeList(n) {
     var out = [], seen = {};
     E.stageStatus().forEach(function (x) {
-      if (out.length >= 5 || x.status === 'complete' || x.stage.id === 's-beyond') return;
+      if (out.length >= n || x.status === 'complete' || x.stage.id === 's-beyond') return;
       var g = (x.goals || []).filter(function (i) { return !E.isDone(i.id) && !E.isImplied(i.id) && !(i.voidHeart && E.isVoidHeartLocked()); })[0];
       if (!g || seen[g.id]) return; seen[g.id] = 1; out.push(g);
     });
-    if (!out.length) return '<p class="muted">The main route is complete.</p>';
-    return '<ol class="route">' + out.map(function (g, i) {
-      return '<li class="' + (i === 0 ? 'now' : '') + '"><button data-action="open-item" data-id="' + g.id + '"><span class="rt-ico theme-' + E.regionById[g.region].theme + '">' + ico(IC.forType(g.type)) + '</span>' +
-        '<b>' + esc(regionName(g.region).replace(" & King's Pass", '').replace(' & Colosseum', '')) + '</b><small>' + esc(g.name) + '</small></button></li>';
-    }).join('<li class="sep" aria-hidden="true">' + ico('arrow') + '</li>') + '</ol>';
+    return out;
   }
-  function requirementsPanel(nxt) {
-    if (!nxt) return '<p class="muted">Nothing left on the route.</p>';
-    var it = nxt.item, rows = [];
-    function ck(id) { var d = E.isDone(id), im = !d && E.isImplied(id); return '<li class="' + (d ? 'ok' : im ? 'implied' : 'no') + '"><span class="cb">' + (d ? ico('check') : im ? '≈' : '') + '</span><button data-action="open-item" data-id="' + id + '">' + esc(byId[id].name) + '</button></li>'; }
-    it.req.forEach(function (r) { rows.push(ck(r)); });
-    var h = '<h4 class="rq-for">For <b>' + esc(it.name) + '</b></h4><ul class="reqs">' + rows.join('');
-    if (it.any.length) h += '<li class="any"><span class="tag">one of</span></li>' + it.any.map(ck).join('');
-    E.missingRegionAccess(it.region).forEach(function (g) { h += '<li class="any"><span class="tag">region access' + (g.mode === 'any' ? ' — one of' : '') + '</span></li>' + g.ids.map(ck).join(''); });
-    h += '</ul>';
-    if (!it.req.length && !it.any.length && !E.missingRegionAccess(it.region).length) h += '<p class="pos small">' + ico('check') + ' No requirements.</p>';
-    var soft = E.softIssues(it);
-    if (it.soft) h += '<h4>Numeric conditions</h4><ul class="reqs">' + (soft.length ? soft.map(function (si) { return '<li class="no"><span class="cb"></span>' + esc(si.label) + ' <small class="muted">(you: ' + si.have + ')</small></li>'; }).join('') : '<li class="ok"><span class="cb">' + ico('check') + '</span>met</li>') + '</ul>';
-    var g = E.recommendedGeo(nxt);
-    if (g) h += '<p class="small">Recommended Geo: <b class="gold">' + fmt(g) + '</b> <span class="muted">(you have ' + fmt(st().resources.geo) + ')</span></p>';
-    return h;
-  }
-  function geoFarms() {
-    return '<section class="card rail-card"><h3>Geo Farms</h3><div class="farms">' + DATA.FARMS.slice(0, 3).map(function (f) {
-      return '<div class="farm">' + ico('geo') + '<div><b>' + esc(f.name) + '</b><small>' + esc(f.where) + '</small></div><a class="btn tiny" href="' + f.wiki + '" target="_blank" rel="noopener">Details</a></div>';
-    }).join('') + '</div><a class="btn small wide" href="#/trackers/geo">View More Farms ' + ico('arrow') + '</a></section>';
-  }
-  function whileHereRail(cur, nxt) {
-    var list = E.whileHere(cur, nxt && nxt.item.id, 3);
-    return '<section class="card rail-card"><h3>' + ico('pin') + ' While You\'re Here</h3><p class="muted small">' + esc(regionName(cur)) + '</p>' +
-      (list.length ? '<div class="rp-list">' + list.map(function (i) { return rrow(i, { sub: (i.fn || TYPE_LABEL[i.type] || '').slice(0, 60) }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here.</p>') +
-      '<a class="btn small wide" href="#/region/' + cur + '">View all items in this region ' + ico('arrow') + '</a></section>';
-  }
-  function regionsCard() {
-    var s = st();
-    var h = '<section class="card regions-card"><div class="card-title"><h3>' + ico('compass') + ' Regions</h3><a class="btn tiny" href="#/regions">All regions ' + ico('arrow') + '</a></div><div class="rg-list">';
-    DATA.REGIONS.forEach(function (r) {
-      var p = E.regionProgress(r.id), cur = r.id === s.currentRegion;
-      var stt = cur ? 'current' : p.complete ? 'complete' : p.accessible ? 'accessible' : 'locked';
-      h += '<button class="rg-row st-' + stt + (ui.panelRegion === r.id ? ' sel' : '') + '" data-action="panel-region" data-id="' + r.id + '" aria-pressed="' + (ui.panelRegion === r.id) + '">' +
-        '<span class="rg-dot" aria-hidden="true"></span><span class="rg-name">' + esc(regionName(r.id).replace(" & King's Pass", '').replace(' & Colosseum', '')) + (cur ? ' <small>· you are here</small>' : '') + '</span>' +
-        '<span class="rg-bar">' + bar(p.pct) + '</span><span class="rg-num">' + (stt === 'locked' ? '🔒 ' : '') + p.mainDone + '/' + p.main + '</span></button>';
-    });
-    h += '</div><div class="wm-legend"><span><i class="lg complete"></i>Completed</span><span><i class="lg current"></i>Current</span><span><i class="lg accessible">✦</i>Accessible</span><span><i class="lg locked"></i>Locked</span></div></section>';
-    return h;
+  function shortRegion(id) { return regionName(id).replace(" & King's Pass", '').replace(' & Colosseum', ''); }
+  function noticeBox() {
+    var w = E.inconsistencies();
+    if (!w.length) return '';
+    var list = w.slice(0, 6).map(function (x) { return x.item ? '<li>' + chip(x.item.id) + ' needs ' + missingHtml(x.missing) + '</li>' : '<li>' + esc(x.text) + '</li>'; }).join('');
+    return '<div class="notice warn"><span>⚠️ Seu save indica que talvez algum requisito anterior não tenha sido registrado.</span>' +
+      '<details><summary>' + w.length + ' item' + (w.length > 1 ? 's' : '') + '</summary><ul class="warn-list">' + list + '</ul></details>' +
+      '<button class="btn small" data-action="mark-all-implied">Mark all implied prerequisites as done</button></div>';
   }
   views.dashboard = function () {
-    var s = st(), nxt = E.nextObjective(), h = '', c = E.completion(), cl = E.checklist();
-    var cur = s.currentRegion, curR = E.regionById[cur];
-    if (!ui.panelRegion || !E.regionById[ui.panelRegion]) ui.panelRegion = cur;
-    h += '<div class="dash">';
-    h += '<div class="dash-main">';
-    // hero
-    h += '<section class="hero">' + HK.Art.hero() + '<div class="hero-text"><h1>WELCOME BACK, LITTLE KNIGHT</h1><p>“In the end, what’s left? A shadow, a name…<br>and the quiet echo of a forgotten kingdom.”</p></div></section>';
-    // stat cards
-    h += '<div class="stat-row">';
-    h += '<section class="card stat-pair"><div class="stat"><span class="st-l">Completion</span><span class="st-v"><b>' + c.value + '%</b> / 112%</span>' + bar(c.value / 112 * 100) + '</div>' +
-      '<div class="stat"><span class="st-l">Checklist</span><span class="st-v"><b>' + cl.done + '</b> / ' + cl.total + '</span>' + bar(cl.done / cl.total * 100) + '</div></section>';
-    h += '<section class="card stat-pair">';
-    h += '<div class="stat cur-region"><span class="st-l">Current Region</span><div class="st-reg"><span class="rt-ico theme-' + curR.theme + '">' + ico('compass') + '</span><div><b class="st-name">' + esc(regionName(cur)) + '</b>' +
-      '<label class="change-region">Change region ' + ico('arrow') + '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label></div></div></div>';
-    if (nxt) {
-      h += '<div class="stat nx"><span class="st-l">Next Objective' + (nxt.pinned ? ' · 📌' : '') + '</span><div class="st-reg">' + typeIco(nxt.item) + '<div><b class="nx-name">' + esc(nxt.item.name) + '</b><small>' + esc(TYPE_LABEL[nxt.item.type]) + ' · ' + esc(regionName(nxt.item.region)) + '</small></div>' +
-        '<button class="icon-btn" data-action="scroll-objective" aria-label="Objective details">' + ico('chevron') + '</button></div></div>';
-    } else h += '<div class="stat nx"><span class="st-l">Next Objective</span><b class="nx-name">All done 🎉</b></div>';
-    h += '</section></div>';
-    // banners
+    var s = st(), nxt = E.nextObjective(), h = '', c = E.completion(), cl = E.checklist(), cur = s.currentRegion;
+    h += '<div class="now">';
+    h += '<p class="greet">Welcome back, little Knight.</p>';
+    // alerts (only when relevant)
     h += voidHeartBanner(true);
     if (E.isDone('black-egg')) h += '<div class="banner gold compact"><strong>🔓 BLACK EGG OPEN</strong>' + (E.isDone('ending-thk') ? '<span>All three Dreamers are sealed away.</span>' : '<span>⚠️ FAÇA O FINAL BÁSICO ANTES DO VOID HEART.</span>') + '</div>';
-    h += warningsBox();
-    // regions + region panel
-    h += '<div class="duo">';
-    h += regionsCard();
-    h += regionPanel(ui.panelRegion);
-    h += '</div>';
-    // route + requirements
-    h += '<div class="duo route-duo"><section class="card"><div class="card-title"><h3>' + ico('route') + ' Recommended Route</h3><a class="btn tiny" href="#/roadmap">View Full Roadmap ' + ico('arrow') + '</a></div>' + routeStrip() + '</section>' +
-      '<section class="card req-card"><h3>Requirements</h3>' + requirementsPanel(nxt) + '</section></div>';
-    // objective details (full)
+    h += noticeBox();
+    // the one thing to do now
     h += '<section class="card objective" id="objective">';
     if (!nxt) {
-      h += '<h2>🎉 Nothing left on the route</h2><p>You have finished everything the guide tracks. See <a href="#/trackers/godhome">Beyond 112%</a>.</p>';
+      h += '<p class="eyebrow">Next objective</p><h2 class="obj-name">Nothing left on the route 🎉</h2><p class="muted">See <a href="#/trackers/godhome">Beyond 112%</a>.</p>';
     } else {
-      var it = nxt.item;
-      h += '<div class="obj-region">' + ico('pin') + ' CURRENT REGION <b>' + esc(regionName(s.currentRegion)) + '</b>' + (it.region !== s.currentRegion ? ' <span class="muted">→ head to</span> <b>' + esc(regionName(it.region)) + '</b>' : '') + '</div>';
-      h += '<div class="obj-label">' + ico('target') + ' NEXT OBJECTIVE' + (nxt.pinned ? ' <span class="badge">📌 pinned</span>' : '') + '</div>';
+      var it = nxt.item, away = it.region !== cur;
+      h += '<p class="eyebrow">' + ico('target') + ' Next objective' + (nxt.pinned ? ' · 📌 pinned' : '') + '</p>';
       h += '<h2 class="obj-name">' + esc(it.name) + ' <span class="pct">' + pctLabel(it) + '</span></h2>';
-      h += '<div class="obj-type">' + esc(TYPE_LABEL[it.type]) + (nxt.stage ? ' · <span class="muted">' + esc(nxt.stage.title) + '</span>' : '') + '</div>';
-      h += '<div class="obj-block"><h3>Requirements</h3><div class="req-list">' + objReqList(it) + '</div></div>';
-      if (nxt.missing.length) h += '<div class="banner warn compact">Blocked — missing: ' + missingHtml(nxt.missing) + '</div>';
-      if (it.loc || it.how) h += '<div class="obj-block' + (s.settings.spoilers ? ' spoiler' : '') + '"><h3>Where / How</h3><p class="sp">' + esc(it.loc || '') + '</p><p class="sp muted">' + esc(it.how || '') + '</p></div>';
-      var here = E.whileHere(it.region, it.id, 6);
-      if (here.length) h += '<div class="obj-block"><h3>While you\'re there</h3>' + itemList(here) + '</div>';
-      var g = E.recommendedGeo(nxt);
-      h += '<div class="obj-block geo-line"><h3>Recommended Geo</h3><b>' + fmt(g) + '</b> <span class="muted">· you have ' + fmt(s.resources.geo) + (g > s.resources.geo ? ' · <span class="neg">missing ' + fmt(g - s.resources.geo) + '</span>' : ' · <span class="pos">enough</span>') + '</span></div>';
-      h += '<div class="obj-actions"><button class="btn btn-primary" data-action="toggle" data-id="' + it.id + '">✓ MARK DONE</button>' +
-        '<a class="btn" href="#/region/' + it.region + '">OPEN REGION</a>' +
-        '<button class="btn ghost" data-action="pin" data-id="' + it.id + '">' + (s.pinned === it.id ? '📌 Unpin' : '📌 Pin') + '</button>' +
-        '<button class="btn ghost" data-action="open-item" data-id="' + it.id + '">Details</button></div>';
+      h += '<p class="obj-type">' + esc(TYPE_LABEL[it.type]) + ' · ' + (away ? 'head to <b>' + esc(shortRegion(it.region)) + '</b>' : 'here in <b>' + esc(shortRegion(it.region)) + '</b>') + '</p>';
+      var reqs = it.req.length || it.any.length || E.missingRegionAccess(it.region).length || it.soft;
+      if (reqs) h += '<div class="req-list">' + objReqList(it) + '</div>';
+      if (nxt.missing.length) h += '<p class="small neg">Blocked — missing: ' + missingHtml(nxt.missing) + '</p>';
+      if (it.loc || it.how) h += '<details class="obj-how' + (s.settings.spoilers ? ' spoiler' : '') + '"><summary>Where & how</summary><p class="sp">' + esc(it.loc || '') + '</p><p class="sp muted">' + esc(it.how || '') + '</p>' +
+        (E.recommendedGeo(nxt) ? '<p class="small">Recommended Geo: <b class="gold">' + fmt(E.recommendedGeo(nxt)) + '</b> <span class="muted">(you have ' + fmt(s.resources.geo) + ')</span></p>' : '') + '</details>';
+      h += '<div class="obj-actions"><button class="btn btn-primary" data-action="toggle" data-id="' + it.id + '">✓ Mark done</button>' +
+        '<button class="btn ghost" data-action="open-item" data-id="' + it.id + '">Details</button>' +
+        '<button class="btn ghost" data-action="pin" data-id="' + it.id + '">' + (s.pinned === it.id ? 'Unpin' : 'Pin') + '</button></div>';
     }
     h += '</section>';
-    // more
+    // three numbers
+    h += '<div class="kpis"><a class="kpi" href="#/audit"><span>Completion</span><b>' + c.value + '<small>/112%</small></b>' + bar(c.value / 112 * 100) + '</a>' +
+      '<a class="kpi" href="#/checklist"><span>Checklist</span><b>' + cl.done + '<small>/' + cl.total + '</small></b>' + bar(cl.done / cl.total * 100) + '</a>' +
+      '<a class="kpi" href="#/trackers/geo"><span>Geo</span><b>' + fmt(s.resources.geo) + '</b><small class="muted">' + (E.nextNail() ? 'next nail ' + fmt(E.nextNail().geo) : 'nail maxed') + '</small></a></div>';
+    // here + up next
+    var here = E.whileHere(cur, nxt && nxt.item.id, 5);
     h += '<div class="duo">';
-    h += '<section class="card"><h3>Resources</h3>' + resourceEditors() + nailStatusLine() + '</section>';
-    var ready = E.readyToCollect(6);
-    h += '<section class="card"><h3>✓ Ready to collect / buy</h3>' + (ready.length ? itemList(ready, { showRegion: true }) : '<p class="muted">Nothing affordable right now.</p>') + '</section>';
-    var blocked = E.blockedObjectives(5);
-    if (blocked.length) h += '<section class="card"><h3>⛓ Blocked objectives</h3><ul class="blocked-list">' + blocked.map(function (b) { return '<li>' + chip(b.id) + '<span class="muted"> needs </span>' + missingHtml(E.missing(b)) + '</li>'; }).join('') + '</ul></section>';
-    if (s.recent.length) h += '<section class="card"><h3>🕯 Recently completed</h3><ul class="recent">' + s.recent.slice(0, 6).map(function (r) {
-      var i = byId[r.id]; return '<li>' + chip(r.id) + ' <button class="btn tiny ghost" data-action="toggle" data-id="' + r.id + '">undo</button><span class="muted small"> ' + esc(regionName(i.region)) + '</span></li>';
-    }).join('') + '</ul></section>';
+    h += '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' In ' + esc(shortRegion(cur)) + '</h3>' +
+      '<label class="change-region">Change ' + ico('arrow') + '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label></div>' +
+      (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
+      '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a></section>';
+    var up = routeList(4);
+    h += '<section class="card"><div class="card-title"><h3>' + ico('route') + ' Up next</h3><a class="link-more" href="#/roadmap">Roadmap →</a></div>' +
+      (up.length ? '<ol class="upnext">' + up.map(function (g, i) { return '<li' + (i === 0 ? ' class="now"' : '') + '><button data-action="open-item" data-id="' + g.id + '"><b>' + esc(g.name) + '</b><small>' + esc(shortRegion(g.region)) + '</small></button></li>'; }).join('') + '</ol>' : '<p class="muted">The main route is complete.</p>') + '</section>';
     h += '</div>';
-    h += '<section class="card"><h3>Journey</h3>' + stageStrip() + '<a class="btn small" href="#/roadmap">Open full roadmap →</a></section>';
+    // regions at a glance
+    h += '<section class="card"><div class="card-title"><h3>' + ico('compass') + ' Regions</h3><a class="link-more" href="#/regions">All →</a></div><div class="rg-list">';
+    DATA.REGIONS.forEach(function (r) {
+      var p = E.regionProgress(r.id), isCur = r.id === cur;
+      var stt = isCur ? 'current' : p.complete ? 'complete' : p.accessible ? 'accessible' : 'locked';
+      h += '<a class="rg-row st-' + stt + '" href="#/region/' + r.id + '"><span class="rg-dot" aria-hidden="true"></span><span class="rg-name">' + esc(shortRegion(r.id)) + '</span>' +
+        '<span class="rg-bar">' + bar(p.pct) + '</span><span class="rg-num">' + p.mainDone + '/' + p.main + '</span></a>';
+    });
+    h += '</div></section>';
     h += '</div>';
-    // right rail
-    h += '<aside class="dash-rail">';
-    h += '<button class="card update-card" data-action="open-editor"><span class="uc-ico">' + ico('edit') + '</span><span><b>UPDATE MY SAVE</b><small>Mark your progress, resources and key items.</small></span></button>';
-    h += quickStats() + whileHereRail(cur, nxt) + geoFarms();
-    h += '</aside></div>';
     return h;
   };
   function objReqList(it) {
@@ -507,18 +388,17 @@
     document.body.setAttribute('data-theme', r.theme);
     var p = E.regionProgress(id), status = E.regionStatus(id), items = E.regionItems(id);
     var h = '<header class="page-head region-head theme-' + r.theme + '">' + '<div class="rh-art">' + regionArt(r, 1000, 220) + '</div>' + '<a href="#/regions" class="back">← Regions</a><h1>' + esc(r.name) + '</h1>' +
-      '<p class="rc-status big">' + (status === 'complete' ? '✓ COMPLETE' : status === 'current' ? '→ CURRENT' : '○ FUTURE') + '</p>' +
-      '<div class="bar big"><span style="width:' + p.pct + '%"></span></div><p class="muted">' + p.mainDone + '/' + p.main + ' main route · ' + p.allDone + '/' + p.all + ' everything</p>' +
-      '<p class="access">🚪 ' + esc(r.access) + '</p>';
+      '<div class="bar big"><span style="width:' + p.pct + '%"></span></div><p class="muted">' + (status === 'complete' ? '✓ Complete · ' : status === 'current' ? 'Current · ' : '') + p.mainDone + '/' + p.main + ' main route · ' + p.allDone + '/' + p.all + ' everything</p>' +
+      '<p class="access small">' + esc(r.access) + '</p>';
     var acc = E.missingRegionAccess(id);
     if (acc.length) h += '<div class="banner warn compact">Access requirements not recorded: ' + missingHtml(acc) + '</div>';
     if (st().currentRegion !== id) h += '<button class="btn small" data-action="set-region" data-id="' + id + '">📍 I am here</button>';
     h += '</header>';
     var main = items.filter(function (i) { return !i.derived && !i.optional && !i.beyond && !E.isDone(i.id) && !E.isImplied(i.id) && !(i.voidHeart && E.isVoidHeartLocked()); })
       .sort(function (a, b) { return (b.goal ? 1 : 0) - (a.goal ? 1 : 0) || (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0) || (b.prio || 0) - (a.prio || 0); })[0];
-    if (main) h += '<section class="card"><h3>🎯 Main objective here</h3>' + itemList([main]) + '</section>';
     var here = E.whileHere(id, main && main.id);
-    if (here.length) h += '<section class="card"><h3>Available now</h3>' + itemList(here.slice(0, 10)) + '</section>';
+    var todo = (main ? [main] : []).concat(here.slice(0, 7));
+    if (todo.length) h += '<section class="card"><h3>To do here</h3>' + itemList(todo) + '</section>';
     if (id === 'the-abyss' || id === 'queens-gardens' || id === 'white-palace') h += voidHeartBanner(true);
     if (id === 'forgotten-crossroads' || id === 'dirtmouth') h += '<div class="banner"><strong>◌ Grubs: ' + st().resources.grubs + '/46</strong><span>Grubfather rewards: 5 → Mask Shard · 10 → Grubsong · 31 → Pale Ore · 46 → Grubberfly\'s Elegy. Per-grub locations: <a href="https://hollowknight.wiki/w/Grubs" target="_blank" rel="noopener">Wiki ↗</a></span></div>';
     var used = {};
@@ -527,10 +407,10 @@
       list.forEach(function (i) { used[i.id] = true; });
       if (!list.length) return;
       var d = list.filter(function (i) { return E.isDone(i.id); }).length;
-      h += '<section class="card"><h3>' + g[0] + ' <span class="muted small">' + d + '/' + list.length + '</span></h3>' + itemList(list) + '</section>';
+      h += '<details class="card group"><summary><h3>' + g[0] + '</h3><span class="muted small">' + d + '/' + list.length + '</span></summary>' + itemList(list) + '</details>';
     });
     var rest = items.filter(function (i) { return !used[i.id] && !(i.type === 'derived'); });
-    if (rest.length) h += '<section class="card"><h3>Other</h3>' + itemList(rest) + '</section>';
+    if (rest.length) h += '<details class="card group"><summary><h3>Other</h3><span class="muted small">' + rest.length + '</span></summary>' + itemList(rest) + '</details>';
     h += poiCard(id);
     return h;
   };
@@ -541,33 +421,28 @@
     var list = HK.POI.LIST.filter(function (p) { return p.region === id; });
     if (!list.length) return '';
     var order = ['stag', 'bench', 'tram', 'vendor', 'npc', 'spring', 'cornifer', 'cocoon', 'landmark', 'boss'];
-    var h = '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' Points of interest <span class="muted small">' + list.length + '</span></h3></div>';
+    var h = '<details class="card group"><summary><h3>Benches, stations & NPCs</h3><span class="muted small">' + list.length + '</span></summary>';
     order.forEach(function (t) {
       var l = list.filter(function (p) { return p.type === t; });
       if (!l.length) return;
       h += '<h4>' + esc(HK.POI.TYPES[t].label) + ' <span class="muted">' + l.length + '</span></h4><div class="rp-list">' + l.map(poiRow).join('') + '</div>';
     });
-    return h + '<p class="muted small">Bosses and Whispering Roots of this region are listed above with their checkboxes.</p></section>';
+    return h + '</details>';
   }
 
   /* ------------------------------ soundtrack page ------------------------------ */
   views.soundtrack = function () {
-    var files = music ? music.files() : {}, cur = music ? music.state() : {};
-    var h = '<header class="page-head"><h1>Soundtrack</h1><p class="lead">Every region has its own ambience — it changes when you travel (or open a region).</p></header>';
-    h += '<section class="card"><h3>' + ico('note') + ' How it works</h3><ul class="small">' +
-      '<li><b>Built in:</b> an <b>original</b> ambience generated live in your browser for each region (different scale, tempo and texture — rain in the City, wind on the Cliffs, drips in the Waterways…). Nothing from the official soundtrack is included.</li>' +
-      '<li><b>Your music:</b> load your own, legally obtained audio file for any region below. Files stay <b>only in this browser on this device</b> (IndexedDB) — they are never uploaded or added to the site. They take priority over the built-in ambience.</li>' +
-      '<li>Running the site locally you can also drop files in <code>assets/audio/regions/&lt;region-id&gt;.mp3</code> or <code>assets/audio/ambience.mp3</code> (ignored by git).</li>' +
-      '<li>The <b>follow</b> button (' + ico('follow') + ') makes the track follow the region on screen; ' + ico('prev') + ico('next') + ' browse regions manually.</li></ul></section>';
-    h += '<section class="card"><h3>Tracks per region</h3><div class="tracks">';
-    var rows = [{ id: '__all', name: 'All regions (fallback)', theme: 'crossroads' }].concat(DATA.REGIONS);
-    rows.forEach(function (r) {
-      var f = files[r.id], prof = HK.Music.PROFILES[r.id];
-      h += '<div class="track' + (cur.region === r.id && cur.playing ? ' playing' : '') + '"><span class="rt-ico theme-' + r.theme + '">' + ico(r.id === '__all' ? 'list' : 'note') + '</span>' +
-        '<div class="tr-meta"><b>' + esc(r.name) + '</b><small>' + (f ? '♫ Your file: ' + esc(f.name) + ' (' + Math.round(f.size / 1024 / 102.4) / 10 + ' MB)' : r.id === '__all' ? 'No file — regions use their own ambience' : 'Original ambience · ' + esc(prof ? prof.mood : '')) + '</small></div>' +
-        '<div class="tr-act">' + (r.id !== '__all' ? '<button class="btn tiny" data-action="music-preview" data-id="' + r.id + '">' + ico('play') + ' Play</button>' : '') +
-        '<label class="btn tiny file-btn">' + ico('upload') + ' ' + (f ? 'Replace' : 'Load file') + '<input type="file" accept="audio/*,.mp3,.ogg,.m4a,.wav,.flac" data-action="music-file" data-id="' + r.id + '" hidden></label>' +
-        (f ? '<button class="btn tiny danger" data-action="music-remove" data-id="' + r.id + '">' + ico('trash') + '</button>' : '') + '</div></div>';
+    var cur = music ? music.state() : {};
+    var h = '<header class="page-head"><h1>Soundtrack</h1><p class="lead">Christopher Larkin\'s official soundtrack, region by region — streamed by Spotify.</p></header>';
+    h += '<section class="card"><p class="small">The player switches track when your current region changes (or when you open a region, with <b>follow</b> ' + ico('follow') + ' on). ' +
+      'Full tracks play when you\'re <b>logged into Spotify</b> in this browser — otherwise Spotify plays 30-second previews. ' +
+      '<a href="' + HK.Music.ALBUM + '" target="_blank" rel="noopener">Full album on Spotify ↗</a></p></section>';
+    h += '<section class="card"><div class="tracks">';
+    DATA.REGIONS.forEach(function (r) {
+      var t = HK.Music.track(r.id), on = cur.region === r.id;
+      h += '<div class="track' + (on ? ' playing' : '') + '"><div class="tr-meta"><b>' + esc(shortRegion(r.id)) + '</b><small>♫ ' + esc(t.title) + (t.note ? ' — ' + esc(t.note) : '') + '</small></div>' +
+        '<div class="tr-act"><button class="btn tiny" data-action="music-play" data-id="' + r.id + '">' + ico('play') + ' Play</button>' +
+        '<a class="btn tiny ghost" href="' + t.url + '" target="_blank" rel="noopener">Spotify ↗</a></div></div>';
     });
     h += '</div></section>';
     return h;
@@ -588,8 +463,8 @@
     return h;
   };
 
-  var FILTERS = [['all', 'ALL'], ['112', '112%'], ['progression', 'PROGRESSION'], ['skill', 'SKILLS'], ['spell', 'SPELLS'], ['boss', 'BOSSES'], ['charm', 'CHARMS'],
-    ['mask', 'MASKS'], ['vessel', 'VESSELS'], ['ore', 'PALE ORE'], ['key', 'KEYS'], ['dream', 'DREAM'], ['optional', 'OPTIONAL']];
+  var FILTERS = [['all', 'All'], ['112', '112%'], ['progression', 'Progression'], ['skill', 'Skills'], ['spell', 'Spells'], ['boss', 'Bosses'], ['charm', 'Charms'],
+    ['mask', 'Masks'], ['vessel', 'Vessels'], ['ore', 'Pale Ore'], ['key', 'Keys'], ['dream', 'Dream'], ['optional', 'Optional']];
   function matchFilter(i, f) {
     if (f === 'all') return true;
     if (f === '112') return i.completion > 0 || i.contrib;
@@ -953,7 +828,8 @@
     view.innerHTML = html;
     if (music) music.setContext(name === 'region' && E.regionById[arg] ? arg : st().currentRegion);
     document.querySelectorAll('[data-nav]').forEach(function (a) {
-      var on = a.getAttribute('data-nav') === hash || (name === 'region' && a.getAttribute('data-nav') === 'regions');
+      var nv = a.getAttribute('data-nav');
+      var on = nv === hash || (name === 'region' && nv === 'regions') || (name === 'trackers' && nv === 'trackers') || (name === 'audit' && nv === 'settings');
       a.classList.toggle('active', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
     return { name: name, arg: arg };
@@ -1008,21 +884,11 @@
         if (confirm('Reset ALL progress? This cannot be undone (export a backup first).') && confirm('Are you sure? Everything returns to the initial state.')) { store.reset(); toast('Progress reset'); }
         break;
       case 'apply-import': applyImport(); break;
-      case 'panel-region': ui.panelRegion = id; ui.regionTab = 'overview'; ui.panelAll = false; render(true); break;
       case 'sync-connect': { var tk = document.getElementById('syncToken'); if (sync && tk) { sync.connect(tk.value).then(function (r) { render(true); if (r !== 'error') toast('🔗 Sync connected', 'ok'); }); } break; }
       case 'sync-now': if (sync) sync.sync().then(function () { render(true); }); break;
       case 'sync-off': if (sync && confirm('Stop syncing on this device? Your progress stays here and in your GitHub Gist.')) { sync.disconnect(); render(true); } break;
-      case 'region-tab': ui.regionTab = id; ui.panelAll = false; render(true); break;
-      case 'panel-all': ui.panelAll = true; render(true); break;
-      case 'mark-tab': {
-        var list = (ui.regionTab === 'npcs' ? [] : regionTabItems(id, ui.regionTab || 'overview')).filter(function (i) { return !i.derived && !E.isDone(i.id) && !(i.voidHeart && E.isVoidHeartLocked()) && !i.beyond; });
-        if (!list.length) { toast('Everything here is already marked.'); break; }
-        if (!confirm('Mark ' + list.length + ' item(s) in ' + regionName(id) + ' as complete?\n\n' + list.slice(0, 12).map(function (i) { return '• ' + i.name; }).join('\n') + (list.length > 12 ? '\n…' : ''))) break;
-        var mm = {}; list.forEach(function (i) { mm[i.id] = true; }); store.setChecks(mm, 'mark-tab'); toast('✓ ' + list.length + ' items marked', 'ok'); break;
-      }
-      case 'scroll-objective': { var ob = document.getElementById('objective'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'start' }); break; }
-      case 'music-preview': if (music) { music.preview(id); setTimeout(function () { render(true); }, 300); } break;
-      case 'music-remove': if (music && confirm('Remove your file for ' + (id === '__all' ? 'all regions' : regionName(id)) + '?')) music.removeFile(id).then(function () { render(true); toast('File removed'); }); break;
+      case 'music-play': if (music) { music.play(id); setTimeout(function () { render(true); }, 200); } break;
+      case 'player-toggle': document.body.classList.toggle('player-open'); break;
     }
   });
   document.addEventListener('change', function (e) {
@@ -1041,13 +907,6 @@
     if (a === 'note') store.setNote(id, t.value);
     if (a === 'spell') { var v = Number(t.value); var m = {}; m[t.getAttribute('data-a')] = v >= 1; m[t.getAttribute('data-b')] = v >= 2; store.setChecks(m, 'spell'); }
     if (a === 'nail') { var lv = Number(t.value), mm = {}; for (var n = 1; n <= 4; n++) mm['nail-' + n] = n <= lv; store.setChecks(mm, 'nail'); }
-    if (a === 'music-file') {
-      var f = t.files && t.files[0]; if (!f || !music) return;
-      if (f.type && f.type.indexOf('audio') !== 0) { toast('That does not look like an audio file.', 'warn'); return; }
-      music.setFile(id, f).then(function () { toast('♫ ' + f.name + ' → ' + (id === '__all' ? 'all regions' : regionName(id)), 'ok'); render(true); })
-        .catch(function (err) { alert('Could not store the file in this browser: ' + (err && err.message || err)); });
-      t.value = '';
-    }
     if (a === 'import-json') readFile(t, 'text', function (txt) {
       try { store.importJSON(txt); toast('Progress imported ✓', 'ok'); } catch (err) { toast('Import failed: ' + err.message, 'warn'); alert('Import failed: ' + err.message); }
     });
@@ -1130,7 +989,6 @@
   /* ============================== BOOT ============================== */
   document.querySelectorAll('i.ni[data-icon]').forEach(function (n) { n.outerHTML = HK.Icons.svg(n.getAttribute('data-icon'), n.className); });
   music = HK.Music.init(store, document.getElementById('music'), document.getElementById('ambience'), toast);
-  music.ready.then(function () { if (lastRoute && lastRoute.name === 'soundtrack') render(true); });
   sync = HK.Sync.init(store);
   sync.onChange(function () { var el = document.getElementById('syncStatus'); if (el) el.innerHTML = syncStatusHtml(); });
   var audit = runAudit();

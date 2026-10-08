@@ -36,9 +36,8 @@ hollow-knight-companion/
 │   ├── state.js            state manager único (localStorage, export/import JSON versionado, reset)
 │   ├── roadmap.js          engine: dependências, completion 112%, progresso por região, Next Objective
 │   ├── save-importer.js    leitor do save real do PC (user#.dat) — decodifica localmente
-│   ├── audio.js            trilha por região (arquivos seus + ambiência original gerada)
+│   ├── audio.js            trilha oficial por região (player embutido do Spotify)
 │   └── app.js              UI: views, trackers, Save Editor, busca, filtros, partículas
-├── assets/audio/           coloque aqui o seu ambience.mp3
 ├── assets/icons/           favicon
 ├── tools/
 │   ├── audit.js            auditoria programática: soma oficial = 112
@@ -72,20 +71,13 @@ Export/Import JSON continua disponível como backup manual.
 Qualquer `git push` para a branch `main` republica o GitHub Pages em ~1 minuto (Settings → Pages: *Deploy from a branch*,
 `main`, `/ (root)`).
 
-## Trilha sonora por região
+## Trilha sonora (oficial, via Spotify)
 
-O player (canto inferior esquerdo; no celular, barra flutuante embaixo) toca uma trilha **por região** e troca
-sozinho quando você muda de região ou abre a página de uma região (botão 📍 “follow”).
-Ordem de prioridade para cada região:
-
-1. arquivo **seu** carregado na página **Soundtrack** para aquela região (fica só no IndexedDB do seu navegador — nunca é enviado nem publicado; funciona no celular);
-2. arquivo seu carregado como “All regions”;
-3. `assets/audio/regions/<id-da-região>.mp3` (cópia local sua, ignorada pelo git);
-4. `assets/audio/ambience.mp3` (cópia local sua, ignorada pelo git);
-5. **ambiência original gerada no navegador** (Web Audio): escala, andamento, timbre e textura diferentes por região
-   (chuva na City of Tears, vento nos Howling Cliffs, gotas nos Royal Waterways, caixinha de música no White Palace…).
-
-Nenhuma faixa da trilha oficial é incluída, baixada ou redistribuída. Navegadores bloqueiam autoplay: clique ▶.
+Cada região toca a sua faixa da trilha oficial de Christopher Larkin pelo **player do próprio Spotify**
+(nada é baixado nem hospedado aqui). O player troca de faixa quando a região atual muda — ou ao abrir uma região,
+com o botão “follow” ligado. Faixas completas tocam quando você está **logado no Spotify** naquele navegador; sem login,
+o Spotify toca prévias de 30 s. Região → faixa segue a wiki (*Soundtrack (Hollow Knight)*); regiões sem faixa própria
+no álbum usam a mais próxima e a página **Soundtrack** explica qual.
 
 ## Como alterar os dados
 

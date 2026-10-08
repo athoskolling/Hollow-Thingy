@@ -2,7 +2,7 @@
 Usage: python3 tests/e2e_functional.py [base_url]
 Checks: console, checkboxes, localStorage, reset, JSON import/export, search, filters, Save Editor sync,
 dependencies/warnings, Next Objective, regions, Geo/Nail/Ore, Essence, Masks/Vessels, Charms, endings,
-Void Heart lock, HK save import preview/apply, music (missing file), mobile menu."""
+Void Heart lock, HK save import preview/apply, Spotify soundtrack, sync, mobile menu."""
 import sys, os, json
 from playwright.sync_api import sync_playwright
 
@@ -21,6 +21,8 @@ def js(page, code):
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(viewport={'width': 1366, 'height': 900}, accept_downloads=True)
+    STUB = "window.__spotify=[];setTimeout(function(){window.onSpotifyIframeApiReady({createController:function(el,o,cb){var f=document.createElement('iframe');f.title='Spotify';f.dataset.uri=o.uri;el.appendChild(f);cb({loadUri:function(u){window.__spotify.push(u);f.dataset.uri=u;},play:function(){},togglePlay:function(){},addListener:function(){}});}});},0);"
+    ctx.route('https://open.spotify.com/embed/iframe-api/v1', lambda r: r.fulfill(content_type='application/javascript', body=STUB))
     page = ctx.new_page()
     page.on('pageerror', lambda e: errors.append('pageerror: ' + str(e)))
     page.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and errors.append('console: ' + m.text))
@@ -170,23 +172,19 @@ with sync_playwright() as p:
     check('apply imports Monarch Wings + Coiled Nail + 1437 Essence', js(page, "HKApp.engine.isDone('monarch-wings') && HKApp.engine.nailLevel()===3 && HKApp.store.get().resources.essence===1437"))
     check('unticked change (Grubsong) not applied', not js(page, "HKApp.engine.isDone('grubsong')"))
 
-    # --- music: missing file handled
-    page.click('[data-music=toggle]'); page.wait_for_timeout(700)
-    check('missing music handled gracefully', 'Add your music' in page.locator('#music').inner_text() or 'Playing' in page.locator('#music').inner_text())
-    page.fill('#music input[data-music=volume]', '0.2'); page.locator('#music input[data-music=volume]').dispatch_event('input')
-    check('volume saved', abs(js(page, "HKApp.store.get().music.volume") - 0.2) < 1e-6)
+    # --- music: official soundtrack via Spotify embed (API stubbed in tests)
+    check('Spotify player ready with a region track', js(page, "HKApp.music.state().api") == 'ready' and page.locator('#music').get_attribute('data-uri').startswith('spotify:track:'))
 
     # --- V2: no world map; regions card, region panel, per-region soundtrack
-    check('music uses the original region ambience', js(page, "HKApp.music.state().source") == 'gen')
     page.goto(BASE + '#/map'); page.wait_for_timeout(300)
     check('no world map anywhere', page.locator('.wm, .wm-svg, [data-nav=map]').count() == 0 and js(page, "typeof HK.WorldMap") == 'undefined')
     page.goto(BASE + '#/dashboard'); page.wait_for_timeout(300)
     check('regions card lists 18 regions', page.locator('.rg-row').count() == 18)
-    page.click('.rg-row[data-id=deepnest]'); page.wait_for_timeout(250)
-    check('regions card selects the region panel', 'DEEPNEST' in page.locator('.rpanel .rp-title').inner_text().upper())
+    page.click('.rg-row[href="#/region/deepnest"]'); page.wait_for_timeout(300)
+    check('regions card opens the region page', 'Deepnest' in page.locator('.region-head h1').inner_text())
     page.goto(BASE + '#/region/deepnest'); page.wait_for_timeout(400)
     check('region page lists points of interest (stag, benches)', page.locator('text=Distant Village Station').count() >= 1)
-    check('music follows the region on screen', js(page, "HKApp.music.state().region") == 'deepnest')
+    check('music follows the region on screen (Deepnest → Nosk)', js(page, "HKApp.music.state().uri") == 'spotify:track:77vkOcahVHbBpF4tdjerSW' and 'spotify:track:77vkOcahVHbBpF4tdjerSW' in js(page, "window.__spotify"))
 
     # --- sync between devices (GitHub Gist API mocked)
     gists = {}
@@ -218,19 +216,10 @@ with sync_playwright() as p:
     check('sync: disconnect', not js(page, "HKApp.sync().connected()"))
     page.unroute('https://api.github.com/**')
     page.goto(BASE + '#/dashboard'); page.wait_for_timeout(300)
-    page.click('.rp-tab[data-id=bosses]'); page.wait_for_timeout(200)
-    check('region panel bosses tab', page.locator('.rpanel .rrow').count() >= 1)
     page.goto(BASE + '#/soundtrack'); page.wait_for_timeout(300)
-    check('soundtrack lists 18 regions + fallback', page.locator('.track').count() == 19)
-    wav = os.path.join(HERE, 'fixtures', 'tone.wav')
-    if not os.path.exists(wav):
-        import wave, struct, math
-        w = wave.open(wav, 'w'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(8000)
-        w.writeframes(b''.join(struct.pack('<h', int(3000 * math.sin(i / 8000 * 2 * math.pi * 440))) for i in range(8000))); w.close()
-    page.set_input_files('input[data-action=music-file][data-id=greenpath]', wav); page.wait_for_timeout(600)
-    check('own file stored for a region', 'tone.wav' in page.locator('.track:has-text("Greenpath")').inner_text())
-    page.click('[data-action=music-preview][data-id=greenpath]'); page.wait_for_timeout(900)
-    check('region plays your own file', js(page, "HKApp.music.state().source") == 'file', js(page, "HKApp.music.state()"))
+    check('soundtrack lists the 18 regions', page.locator('.track').count() == 18)
+    page.click('[data-action=music-play][data-id=greenpath]'); page.wait_for_timeout(400)
+    check('Play loads the region track (Greenpath)', js(page, "HKApp.music.state().uri") == 'spotify:track:6fyI2QGPzUiqRHnuYD7oOp')
 
     # --- mobile menu
     m = b.new_context(viewport={'width': 390, 'height': 844}).new_page()

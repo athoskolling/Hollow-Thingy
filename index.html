@@ -27,30 +27,24 @@
     <div class="nav-links">
       <a href="#/dashboard" data-nav="dashboard"><i class="ni" data-icon="dashboard"></i><span>Dashboard</span></a>
       <a href="#/regions" data-nav="regions"><i class="ni" data-icon="compass"></i><span>Regions</span></a>
-      <a href="#/roadmap" data-nav="roadmap"><i class="ni" data-icon="route"></i><span>Roadmap</span></a>
       <a href="#/checklist" data-nav="checklist"><i class="ni" data-icon="checklist"></i><span>Checklist</span></a>
-      <a href="#/save" data-nav="save"><i class="ni" data-icon="save"></i><span>My Save</span></a>
-      <a href="#/trackers/geo" data-nav="trackers/geo"><i class="ni" data-icon="geo"></i><span>Geo &amp; Resources</span></a>
-      <a href="#/trackers/charms" data-nav="trackers/charms"><i class="ni" data-icon="charm"></i><span>Charms</span></a>
-      <a href="#/trackers/abilities" data-nav="trackers/abilities"><i class="ni" data-icon="wing"></i><span>Movement &amp; Spells</span></a>
-      <a href="#/trackers/nail" data-nav="trackers/nail"><i class="ni" data-icon="nail"></i><span>Nail &amp; Upgrades</span></a>
-      <a href="#/trackers/masks" data-nav="trackers/masks"><i class="ni" data-icon="mask"></i><span>Masks &amp; Vessels</span></a>
-      <a href="#/trackers/keys" data-nav="trackers/keys"><i class="ni" data-icon="key"></i><span>Keys</span></a>
-      <a href="#/trackers/essence" data-nav="trackers/essence"><i class="ni" data-icon="essence"></i><span>Essence &amp; Dreams</span></a>
-      <a href="#/trackers/bosses" data-nav="trackers/bosses"><i class="ni" data-icon="skull"></i><span>Bosses</span></a>
-      <a href="#/trackers/endings" data-nav="trackers/endings"><i class="ni" data-icon="ending"></i><span>Endings</span></a>
-      <a href="#/trackers/grimm" data-nav="trackers/grimm"><i class="ni" data-icon="flame"></i><span>Grimm Troupe</span></a>
-      <a href="#/trackers/colosseum" data-nav="trackers/colosseum"><i class="ni" data-icon="flag"></i><span>Colosseum</span></a>
-      <a href="#/trackers/nailarts" data-nav="trackers/nailarts"><i class="ni" data-icon="trial"></i><span>Nail Arts</span></a>
-      <a href="#/trackers/godhome" data-nav="trackers/godhome"><i class="ni" data-icon="sun"></i><span>Godhome</span></a>
+      <a href="#/roadmap" data-nav="roadmap"><i class="ni" data-icon="route"></i><span>Roadmap</span></a>
+      <a href="#/trackers/geo" data-nav="trackers"><i class="ni" data-icon="chart"></i><span>Trackers</span></a>
       <a href="#/soundtrack" data-nav="soundtrack"><i class="ni" data-icon="note"></i><span>Soundtrack</span></a>
-      <a href="#/audit" data-nav="audit"><i class="ni" data-icon="chart"></i><span>112% Audit</span></a>
-      <a href="#/settings" data-nav="settings"><i class="ni" data-icon="gear"></i><span>Tools &amp; Settings</span></a>
+      <a href="#/save" data-nav="save"><i class="ni" data-icon="save"></i><span>My Save</span></a>
+      <a href="#/settings" data-nav="settings"><i class="ni" data-icon="gear"></i><span>Settings</span></a>
     </div>
     <div class="nav-foot">Data: hollowknight.wiki · fan-made, not affiliated with Team Cherry</div>
   </nav>
   <div class="scrim" id="scrim" hidden></div>
   <aside class="player" id="music" aria-label="Region soundtrack"></aside>
+  <nav class="tabbar" aria-label="Quick navigation">
+    <a href="#/dashboard" data-nav="dashboard"><i class="ni" data-icon="target"></i><span>Now</span></a>
+    <a href="#/regions" data-nav="regions"><i class="ni" data-icon="compass"></i><span>Regions</span></a>
+    <a href="#/checklist" data-nav="checklist"><i class="ni" data-icon="checklist"></i><span>Checklist</span></a>
+    <a href="#/trackers/geo" data-nav="trackers"><i class="ni" data-icon="chart"></i><span>Trackers</span></a>
+    <button type="button" data-action="player-toggle" aria-label="Soundtrack"><i class="ni" data-icon="note"></i><span>Music</span></button>
+  </nav>
 
   <header class="topbar">
     <button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false"><i class="ni" data-icon="menu"></i></button>
@@ -60,8 +54,6 @@
       <input id="globalSearch" type="search" placeholder="Search Hallownest..." autocomplete="off" aria-label="Search items, regions, bosses, charms">
       <div id="searchResults" class="search-results" role="listbox" hidden></div>
     </div>
-    <a class="icon-btn top-ico" href="#/save" aria-label="My save and sync" title="My Save &amp; Sync"><i class="ni" data-icon="save"></i></a>
-    <a class="icon-btn top-ico" href="#/settings" aria-label="Tools &amp; settings" title="Tools &amp; Settings"><i class="ni" data-icon="gear"></i></a>
     <button class="btn btn-primary update-btn" data-action="open-editor"><i class="ni" data-icon="edit"></i><span>UPDATE MY SAVE</span></button>
   </header>
 
@@ -74,7 +66,6 @@
     </div>
   </div>
   <div id="toasts" class="toasts" aria-live="polite"></div>
-  <audio id="ambience" preload="none"></audio>
 
   <script src="js/data.js"></script>
   <script src="js/icons.js"></script>
