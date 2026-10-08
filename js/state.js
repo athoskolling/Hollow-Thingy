@@ -15,7 +15,7 @@
       version: VERSION,
       checks: checks,
       resources: { geo: 0, essence: 0, grubs: 0 },
-      currentRegion: 'crystal-peak',
+      currentRegion: 'dirtmouth',
       settings: { spoilers: false, compact: false, hideOptional: false, hideDone: false },
       music: { volume: 0.4, muted: false, loop: true },
       notes: {},

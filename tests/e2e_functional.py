@@ -32,11 +32,15 @@ with sync_playwright() as p:
 
     # --- audit & initial state
     check('audit passes in browser', js(page, "HKApp.runAudit().errors.length === 0 && HKApp.runAudit().total === 112"))
-    check('initial completion = 7% (cloak2+claw2+VS1+dive1+SM1)', js(page, "HKApp.engine.completion().value") == 7, js(page, "HKApp.engine.completion().value"))
-    check('next objective is Crystal Heart', page.locator('.obj-name').inner_text().startswith('Crystal Heart'))
+    check('new game: initial completion = 0%', js(page, "HKApp.engine.completion().value") == 0, js(page, "HKApp.engine.completion().value"))
+    check('next objective is Vengeful Spirit (start of game)', page.locator('.obj-name').inner_text().startswith('Vengeful Spirit'), page.locator('.obj-name').inner_text())
+    check('starts in Dirtmouth with nothing checked', js(page, "HKApp.store.get().currentRegion") == 'dirtmouth' and js(page, "Object.keys(HKApp.store.get().checks).length") == 0)
+    js(page, "HKApp.store.setChecks({'hornet-protector':true,'mothwing-cloak':true,'mantis-claw':true,'vengeful-spirit':true}); HKApp.store.setRegion('crystal-peak'); HKApp.render()"); page.wait_for_timeout(200)
     check('Void Heart lock banner visible', page.locator('text=VOID HEART — NÃO PEGUE AINDA').first.is_visible())
 
     # --- checkbox from dashboard "while here" + persistence
+    page.goto(BASE + '#/region/crystal-peak'); page.wait_for_timeout(300)
+    js(page, "document.querySelectorAll('details').forEach(d => d.open = true)")
     page.locator('#item-descending-dark input.chk').first.click(); page.wait_for_timeout(150)
     check('checkbox marks Descending Dark', js(page, "HKApp.engine.isDone('descending-dark')"))
     stored = json.loads(js(page, "localStorage.getItem('hk-companion-state')"))
@@ -45,10 +49,13 @@ with sync_playwright() as p:
     check('state survives reload', js(page, "HKApp.engine.isDone('descending-dark')"))
 
     # --- Mark done objective -> next objective changes
+    page.goto(BASE + '#/'); page.wait_for_timeout(300)
+    first = js(page, "HKApp.engine.nextObjective().item.id")
+    first_name = page.locator('.obj-name').inner_text()
     page.click('.obj-actions [data-action=toggle]'); page.wait_for_timeout(150)
-    check('MARK DONE records Crystal Heart (+2%)', js(page, "HKApp.engine.isDone('crystal-heart') && HKApp.engine.completion().value === 10"))
+    check('MARK DONE records the objective (' + first + ')', js(page, "HKApp.engine.isDone(%r)" % first))
     nxt = page.locator('.obj-name').inner_text()
-    check('next objective moved on after Crystal Heart', not nxt.startswith('Crystal Heart'), nxt)
+    check('next objective moved on after marking done', nxt != first_name, nxt)
 
     # --- region selector influences "while you're here"
     page.select_option('select[data-action=region]', 'royal-waterways'); page.wait_for_timeout(200)
@@ -57,8 +64,8 @@ with sync_playwright() as p:
     # --- Save editor single-source sync
     page.click('.update-btn'); page.wait_for_timeout(200)
     check('editor opens', page.locator('#modal').is_visible())
-    ed_ch = page.locator('#modal .ed-toggle:has-text("Crystal Heart") input')
-    check('editor shows Crystal Heart checked (sync from checklist)', ed_ch.is_checked())
+    ed_ch = page.locator('#modal .ed-toggle:has-text("Mothwing Cloak") input')
+    check('editor shows Mothwing Cloak checked (sync from checklist)', ed_ch.is_checked())
     page.locator('#modal .ed-toggle:has-text("Monarch Wings") input').click(); page.wait_for_timeout(150)
     check('editor → Monarch Wings recorded', js(page, "HKApp.engine.isDone('monarch-wings')"))
     page.select_option('#modal select[data-action=spell][data-a=vengeful-spirit]', '2'); page.wait_for_timeout(150)
@@ -154,7 +161,7 @@ with sync_playwright() as p:
     check('export has version 1 + app id', data.get('version') == 1 and data.get('app') == 'hollow-knight-companion')
     before = js(page, "HKApp.engine.completion().value")
     page.click('[data-action=reset]'); page.wait_for_timeout(250)
-    check('reset returns to initial 7%', js(page, "HKApp.engine.completion().value") == 7)
+    check('reset returns to initial 0%', js(page, "HKApp.engine.completion().value") == 0)
     page.set_input_files('input[data-action=import-json]', path); page.wait_for_timeout(400)
     check('import JSON restores progress', js(page, "HKApp.engine.completion().value") == before, (before, js(page, "HKApp.engine.completion().value")))
     bad = os.path.join(os.path.dirname(path), 'bad.json'); open(bad, 'w').write('{"version": 99}')

@@ -19,10 +19,15 @@ t('AES-256 known answer (FIPS-197 C.3)', () => {
   const ct = Uint8Array.from(Buffer.from('8ea2b7ca516745bfeafc49904b496089', 'hex'));
   assert.strictEqual(Buffer.from(SI.aesEcbDecrypt(key, ct)).toString('hex'), '00112233445566778899aabbccddeeff');
 });
-t('initial state = 7% and next = Crystal Heart', () => {
-  const { E } = fresh();
-  assert.strictEqual(E.completion().value, 7);
-  assert.strictEqual(E.nextObjective().item.id, 'crystal-heart');
+t('new game: 0% and the first steps are Vengeful Spirit → False Knight → Hornet → Mothwing Cloak → Mantis Claw', () => {
+  const { s, E } = fresh();
+  assert.strictEqual(E.completion().value, 0);
+  assert.strictEqual(Object.keys(s.get().checks).length, 0);
+  assert.strictEqual(s.get().currentRegion, 'dirtmouth');
+  const order = [];
+  for (let k = 0; k < 6; k++) { const o = E.nextObjective(); order.push(o.item.id); s.setCheck(o.item.id, true); }
+  assert.deepStrictEqual(order.slice(0, 5), ['vengeful-spirit', 'false-knight', 'hornet-protector', 'mothwing-cloak', 'mantis-claw']);
+  assert.ok(!['crystal-heart', 'void-heart'].includes(order[5]));
 });
 t('out-of-order Monarch Wings is never recommended again & implies Broken Vessel', () => {
   const { s, E } = fresh();
@@ -65,7 +70,7 @@ t('JSON export/import roundtrip + version check', () => {
   assert.ok(b.s.isChecked('crystal-heart')); assert.strictEqual(b.s.get().resources.geo, 1234);
   assert.throws(() => b.s.importJSON('{"version":99}')); assert.throws(() => b.s.importJSON('{}'));
 });
-t('reset returns to initial state', () => { const { s, E } = fresh(); s.setChecks({ 'crystal-heart': true }); s.reset(); assert.strictEqual(E.completion().value, 7); });
+t('reset returns to initial state', () => { const { s, E } = fresh(); s.setChecks({ 'crystal-heart': true }); s.reset(); assert.strictEqual(E.completion().value, 0); });
 t('real-save pipeline decodes synthetic user.dat', () => {
   const f = path.join(__dirname, 'fixtures', 'user-test.dat');
   if (!fs.existsSync(f)) throw new Error('fixture missing — run python3 tools/make_test_save.py');

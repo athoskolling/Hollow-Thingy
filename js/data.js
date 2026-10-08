@@ -84,6 +84,7 @@
   /* ROADMAP STAGES (recommended order — never mandatory)                */
   /* ------------------------------------------------------------------ */
   var STAGES = [
+    { id: 's-start', title: 'Start — Vengeful Spirit, Mothwing Cloak & Mantis Claw', region: 'forgotten-crossroads' },
     { id: 's-city', title: 'City of Tears / Soul Master / Desolate Dive', region: 'city-of-tears' },
     { id: 's-peak', title: "Crystal Peak — Crystal Heart, Shopkeeper's Key, Pale Ore, Descending Dark", region: 'crystal-peak' },
     { id: 's-rest', title: 'Resting Grounds — Dream Nail, Seer, Essence', region: 'resting-grounds' },
@@ -132,12 +133,12 @@
 
   /* ---------- EQUIPMENT (14%) ---------- */
   I('mothwing-cloak', 'Mothwing Cloak', 'ability', 'greenpath', 2, {
-    tags: ['progression', 'skill'], stage: 's-city', req: ['hornet-protector'],
+    tags: ['progression', 'skill'], stage: 's-start', goal: true, prio: 7, req: ['hornet-protector'],
     loc: 'Greenpath — reward after defeating Hornet Protector.', fn: 'Dash.',
     how: 'Defeat Hornet in Greenpath; the cloak is behind her arena.',
     unlocks: ['crystal-heart', 'thorns-of-agony'], wiki: W('Mothwing_Cloak'), save: { pd: 'hasDash' } });
   I('mantis-claw', 'Mantis Claw', 'ability', 'fungal-wastes', 2, {
-    tags: ['progression', 'skill'], stage: 's-city',
+    tags: ['progression', 'skill'], stage: 's-start', goal: true, prio: 5,
     loc: 'Mantis Village (Fungal Wastes).', fn: 'Wall jump / cling to walls.',
     how: 'Descend into Mantis Village; the claw is on a pedestal before the Mantis Lords.',
     unlocks: ['crystal-heart', 'mantis-lords', 'howling-wraiths'], wiki: W('Mantis_Claw'), save: { pd: 'hasWalljump' } });
@@ -181,7 +182,7 @@
 
   /* ---------- SPELLS (6%) ---------- */
   I('vengeful-spirit', 'Vengeful Spirit', 'spell', 'forgotten-crossroads', 1, {
-    tags: ['progression', 'spell'], stage: 's-city',
+    tags: ['progression', 'spell'], stage: 's-start', goal: true, prio: 10,
     loc: 'Ancestral Mound (Forgotten Crossroads) — Snail Shaman.', fn: 'Projectile spell.',
     how: 'Talk to the Snail Shaman in the Ancestral Mound.', wiki: W('Vengeful_Spirit'), save: { pdGte: ['fireballLevel', 1] } });
   I('shade-soul', 'Shade Soul', 'spell', 'city-of-tears', 1, {
@@ -405,8 +406,8 @@
   /* ---------- BOSSES (14%) ---------- */
   function boss(id, name, region, o) { o.tags = (o.tags || []).concat(['boss']); I(id, name, 'boss', region, o.completion === undefined ? 1 : o.completion, o); }
   boss('gruz-mother', 'Gruz Mother', 'forgotten-crossroads', { stage: 's-cleanup', loc: 'Forgotten Crossroads, lower right area.', how: 'Early boss.', reward: 'Geo', tip: 'Stay under her and punish after slams.', wiki: W('Gruz_Mother'), save: { scene: ['Battle Scene', 'Crossroads_04'] } });
-  boss('false-knight', 'False Knight', 'forgotten-crossroads', { stage: 's-city', loc: 'Forgotten Crossroads, middle area.', reward: 'City Crest', tip: 'Hit the head when he is stunned.', wiki: W('False_Knight'), save: { pd: 'falseKnightDefeated' } });
-  boss('hornet-protector', 'Hornet Protector', 'greenpath', { stage: 's-city', loc: 'Greenpath, above the Stag Station.', reward: 'Mothwing Cloak', tip: 'Watch for her needle throw wind-up.', wiki: W('Hornet_Protector'), save: { pd: 'hornet1Defeated' } });
+  boss('false-knight', 'False Knight', 'forgotten-crossroads', { stage: 's-start', goal: true, prio: 9, loc: 'Forgotten Crossroads, middle area.', reward: 'City Crest', tip: 'Hit the head when he is stunned.', wiki: W('False_Knight'), save: { pd: 'falseKnightDefeated' } });
+  boss('hornet-protector', 'Hornet Protector', 'greenpath', { stage: 's-start', goal: true, prio: 9, loc: 'Greenpath, above the Stag Station.', reward: 'Mothwing Cloak', tip: 'Watch for her needle throw wind-up.', wiki: W('Hornet_Protector'), save: { pd: 'hornet1Defeated' } });
   boss('brooding-mawlek', 'Brooding Mawlek', 'forgotten-crossroads', { stage: 's-cleanup', req: ['mantis-claw'], loc: 'Far west of the Forgotten Crossroads (use Mantis Claw).', reward: 'Mask Shard', tip: 'Stay close and attack after its leap.', wiki: W('Brooding_Mawlek'), save: { scene: ['Battle Scene', 'Crossroads_09'] } });
   boss('mantis-lords', 'Mantis Lords', 'fungal-wastes', { stage: 's-cleanup', req: ['mantis-claw'], loc: 'Mantis Village throne room (pull the floor lever right of the Mantis Claw).', reward: 'Mark of Pride, access to Deepnest', tip: 'Learn the 3 attacks before the 2-lord phase.', wiki: W('Mantis_Lords'), save: { pd: 'defeatedMantisLords' } });
   boss('soul-master', 'Soul Master', 'city-of-tears', { stage: 's-city', goal: true, prio: 10, loc: 'Soul Sanctum (City of Tears).', reward: 'Desolate Dive', tip: 'Dive attack: move away from the shockwave.', wiki: W('Soul_Master'), save: { pd: 'mageLordDefeated' } });
@@ -608,7 +609,7 @@
   var DATA = {
     version: 1, REGIONS: REGIONS, STAGES: STAGES, ITEMS: ITEMS, FARMS: FARMS,
     SEER_MILESTONES: SEER_MILESTONES, OFFICIAL_BREAKDOWN: OFFICIAL_BREAKDOWN, auditCategory: auditCategory,
-    INITIAL_DONE: ['mothwing-cloak', 'mantis-claw', 'vengeful-spirit', 'access-city', 'soul-master', 'desolate-dive'],
+    INITIAL_DONE: [],
     TOTAL_ESSENCE_ONE_TIME: 3208, GRUBS_TOTAL: 46
   };
   root.HK = root.HK || {};
