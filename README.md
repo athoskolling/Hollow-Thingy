@@ -39,6 +39,7 @@ hollow-knight-companion/
 │   ├── audio.js            trilha oficial por região (player embutido do Spotify)
 │   └── app.js              UI: views, trackers, Save Editor, busca, filtros, partículas
 ├── assets/icons/           favicon
+├── assets/bg/              artworks do carrossel de fundo (js/bg.js, troca a cada 20 s)
 ├── tools/
 │   ├── audit.js            auditoria programática: soma oficial = 112
 │   └── make_test_save.py   gera um user.dat sintético para testar o importador
@@ -181,3 +182,7 @@ Em ambos os casos a confirmação de mudanças continuaria obrigatória.
 
 Dados: [hollowknight.wiki](https://hollowknight.wiki/) (CC BY-SA). Projeto de fã, sem afiliação com a Team Cherry.
 Nenhum asset oficial é incluído.
+
+
+## Créditos do fundo
+As imagens em `assets/bg/` são artes de fãs / promocionais de Hollow Knight (© Team Cherry e respectivos artistas), escolhidas pelo dono do site e usadas apenas como papel de parede num projeto pessoal, sem fins lucrativos e sem afiliação. Para trocar: substitua os arquivos `bg-01.jpg … bg-09.jpg`; o intervalo fica em `INTERVAL` no `js/bg.js`.
