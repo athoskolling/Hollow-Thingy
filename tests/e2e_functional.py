@@ -293,6 +293,54 @@ with sync_playwright() as p:
     d = page.locator('[data-action=profile-del]'); d.first.click(); page.wait_for_timeout(200); d.first.click(); page.wait_for_timeout(300)
     check('Profiles: two-tap delete removes it', js(page, "HKApp.store.profiles.list().length") == 1)
 
+    # --- Spotify account (PKCE + Web Playback SDK), all Spotify endpoints mocked
+    sp_calls = []
+    SDK = "window.Spotify={Player:function(o){var L={};this.addListener=function(e,f){L[e]=f};this.connect=function(){setTimeout(function(){L.ready&&L.ready({device_id:'dev1'})},30)};this.togglePlay=function(){window.__tog=(window.__tog||0)+1;L.player_state_changed&&L.player_state_changed({paused:!!(window.__tog%2)})};this.setVolume=function(v){window.__vol=v};this.activateElement=function(){};this.disconnect=function(){};window.__fire=function(e,d){L[e]&&L[e](d)};}};setTimeout(function(){window.onSpotifyWebPlaybackSDKReady&&window.onSpotifyWebPlaybackSDKReady()},0);"
+    ctx.route('https://sdk.scdn.co/spotify-player.js', lambda r: r.fulfill(content_type='application/javascript', body=SDK))
+    def authorize(r):
+        from urllib.parse import urlparse, parse_qs
+        q = parse_qs(urlparse(r.request.url).query)
+        sp_calls.append(('authorize', q['code_challenge_method'][0], q['client_id'][0], q['scope'][0], q['redirect_uri'][0]))
+        r.fulfill(status=302, headers={'Location': q['redirect_uri'][0] + '?code=thecode&state=' + q['state'][0]})
+    ctx.route('https://accounts.spotify.com/authorize*', authorize)
+    def token(r):
+        sp_calls.append(('token', r.request.post_data))
+        r.fulfill(content_type='application/json', body=json.dumps({'access_token': 'AT', 'refresh_token': 'RT', 'expires_in': 3600}))
+    ctx.route('https://accounts.spotify.com/api/token', token)
+    def spapi(r):
+        sp_calls.append(('api', r.request.method, r.request.url, r.request.post_data, r.request.headers.get('authorization')))
+        r.fulfill(status=204, body='')
+    ctx.route('https://api.spotify.com/**', spapi)
+    page.goto(BASE + '#/soundtrack'); page.wait_for_timeout(300)
+    check('Spotify: connect card with the exact Redirect URI to register', page.locator('.sp-card .sp-uri').inner_text() == BASE.split('#')[0] and page.locator('#spClientId').count() == 1, page.locator('.sp-uri').inner_text())
+    page.fill('#spClientId', 'nope'); page.click('[data-action=spotify-connect]'); page.wait_for_timeout(200)
+    check('Spotify: invalid Client ID is rejected without leaving the page', not sp_calls and '#/soundtrack' in page.url)
+    CID = 'a1b2c3d4e5f60718293a4b5c6d7e8f90'
+    page.fill('#spClientId', CID); page.click('[data-action=spotify-connect]'); page.wait_for_timeout(1500)
+    au = [c for c in sp_calls if c[0] == 'authorize']
+    check('Spotify: PKCE (S256) authorize with the streaming scopes, no client secret', au and au[0][1] == 'S256' and au[0][2] == CID and 'streaming' in au[0][3] and 'user-modify-playback-state' in au[0][3])
+    tk = [c for c in sp_calls if c[0] == 'token']
+    check('Spotify: code exchanged with code_verifier (no secret)', tk and 'code_verifier=' in tk[0][1] and 'client_secret' not in tk[0][1])
+    check('Spotify: back on #/soundtrack, query cleaned, connected + SDK ready', '?code' not in page.url and '#/soundtrack' in page.url and js(page, "HKApp.music.state().spotify") == 'ready', js(page, "HKApp.music.state().spotify"))
+    check('Spotify: tokens kept out of the progress state/export', 'AT' not in js(page, "HKApp.store.exportJSON()") and 'RT' not in js(page, "HKApp.store.exportJSON()"))
+    page.click('[data-action=music-play][data-id=greenpath]'); page.wait_for_timeout(500)
+    pl = [c for c in sp_calls if c[0] == 'api' and c[1] == 'PUT' and '/me/player/play' in c[2]]
+    check('Spotify: Play starts the FULL region track on the web device', pl and 'spotify:track:6fyI2QGPzUiqRHnuYD7oOp' in pl[-1][3] and 'device_id=dev1' in pl[-1][2] and pl[-1][4] == 'Bearer AT', pl[-1:] )
+    check('Spotify: track loops (repeat=track)', any('/me/player/repeat?state=track' in c[2] for c in sp_calls if c[0] == 'api'))
+    check('Spotify: own controls shown, embed hidden', page.locator('#music.sdk-on .pl-toggle').count() == 1 and not page.locator('#music .pl-embed').is_visible())
+    js(page, "HKApp.music.setContext('dirtmouth')"); js(page, "HK.__f=1")
+    page.evaluate("window.__fire('player_state_changed',{paused:false})"); page.wait_for_timeout(100)
+    n0 = len([c for c in sp_calls if c[0] == 'api' and '/me/player/play' in c[2]])
+    page.evaluate("HKApp.store.setMusic({follow:true}); HKApp.music.setContext('city-of-tears')"); page.wait_for_timeout(500)
+    pl = [c for c in sp_calls if c[0] == 'api' and '/me/player/play' in c[2]]
+    check('Spotify: changing region while playing switches to that region’s track', len(pl) == n0 + 1 and '0nD62ke95NJvAI8chsRjRg' in pl[-1][3], pl[-1:])
+    page.reload(); page.wait_for_timeout(800)
+    check('Spotify: connection survives reload (refresh token)', js(page, "HKApp.music.spotify().connected") and js(page, "HKApp.music.state().spotify") == 'ready')
+    page.goto(BASE + '#/soundtrack'); page.wait_for_timeout(300)
+    page.click('[data-action=spotify-disconnect]'); page.wait_for_timeout(300)
+    check('Spotify: disconnect clears tokens', js(page, "localStorage.getItem('hk-companion-spotify')") is None or 'RT' not in js(page, "localStorage.getItem('hk-companion-spotify')"))
+    check('Spotify: back to the embedded player', js(page, "HKApp.music.state().spotify") == 'off' and page.locator('#spClientId').count() == 1)
+
     # --- mobile menu
     m = b.new_context(viewport={'width': 390, 'height': 844}).new_page()
     m.on('pageerror', lambda e: errors.append('mobile pageerror: ' + str(e)))

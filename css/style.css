@@ -807,3 +807,15 @@ h2.sub { font-size: 1.05rem; margin: 22px 0 10px; color: var(--muted); text-tran
 .profile-row input[type=text] { flex: 1; min-width: 140px; }
 .profile-row.active input[type=text] { border-color: var(--accent); }
 @media (max-width: 560px) { .buy { grid-template-columns: auto 1fr; } .buy-cost { grid-column: 2; text-align: left; } }
+
+/* ---- Spotify account mode ---- */
+.pl-sdk, .player.sdk-on .pl-embed { display: none; }
+.player.sdk-on .pl-sdk { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.pl-toggle { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border-radius: 50%; flex: none; }
+.pl-toggle .ico { width: 16px; height: 16px; }
+.pl-vol { flex: 1; min-width: 0; accent-color: #1ed760; }
+.pl-sdk-msg { display: none; }
+.pl-connect { display: none; text-align: left; padding: 2px 4px; color: var(--soul); }
+.player.sdk-off .pl-connect { display: block; }
+.sp-steps { padding-left: 1.2em; margin: .5em 0; display: grid; gap: 4px; }
+.sp-uri { display: inline-block; max-width: 100%; overflow-wrap: anywhere; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.07); user-select: all; }

@@ -441,8 +441,8 @@
     var cur = music ? music.state() : {};
     var h = '<header class="page-head"><h1>Soundtrack</h1><p class="lead">Christopher Larkin\'s official soundtrack, region by region — streamed by Spotify.</p></header>';
     h += '<section class="card"><p class="small">The player switches track when your current region changes (or when you open a region, with <b>follow</b> ' + ico('follow') + ' on). ' +
-      'Full tracks play when you\'re <b>logged into Spotify</b> in this browser — otherwise Spotify plays 30-second previews. ' +
       '<a href="' + HK.Music.ALBUM + '" target="_blank" rel="noopener">Full album on Spotify ↗</a></p></section>';
+    h += spotifyCard();
     h += '<section class="card"><div class="tracks">';
     DATA.REGIONS.forEach(function (r) {
       var t = HK.Music.track(r.id), on = cur.region === r.id;
@@ -453,6 +453,32 @@
     h += '</div></section>';
     return h;
   };
+
+  /* ---- Spotify account (full tracks) ---- */
+  function spotifyCard() {
+    var sp = music ? music.spotify() : { status: 'off' };
+    var h = '<section class="card sp-card"><h3>🎧 Full tracks with your Spotify account</h3>';
+    if (sp.msg) h += '<p class="banner warn compact">' + esc(sp.msg) + '</p>';
+    if (sp.connected && sp.status === 'ready') {
+      h += '<p><span class="badge ok">connected</span> The player now plays every region’s <b>full track</b> through your Spotify account (Premium).</p>';
+    } else if (sp.connected && sp.status === 'connecting') {
+      h += '<p class="muted">Connecting to Spotify…</p>';
+    } else if (sp.connected) {
+      h += '<p class="muted small">Connected, but the full player isn’t available here — the embedded player is used instead.</p>';
+    }
+    if (sp.connected) {
+      h += '<div class="btn-row"><button class="btn small ghost" data-action="spotify-disconnect">Disconnect Spotify</button></div>';
+    } else {
+      h += '<p class="small">The embedded player only gives <b>30-second previews</b> unless this browser is logged in to Spotify. To play the <b>whole track</b>, connect your account (needs <b>Spotify Premium</b> and a desktop browser — phones usually can’t run the web player). There is no server: you create a free Spotify app of your own, and the login happens directly between this page and Spotify.</p>' +
+        '<ol class="small sp-steps"><li>Open the <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify Developer Dashboard</a> → <b>Create app</b>.</li>' +
+        '<li>Under <b>Redirect URI</b> add exactly: <code class="sp-uri">' + esc(sp.redirectUri) + '</code></li>' +
+        '<li>Tick <b>Web Playback SDK</b> (and Web API), save, and copy the <b>Client ID</b>.</li>' +
+        '<li>Paste it here and connect:</li></ol>' +
+        '<div class="sync-form"><input id="spClientId" type="text" placeholder="Client ID (32 characters)" value="' + esc(sp.clientId) + '" autocomplete="off" aria-label="Spotify Client ID"><button class="btn btn-primary" data-action="spotify-connect">Connect Spotify</button></div>' +
+        '<p class="muted small">Tokens stay in this browser only (never synced or exported). Prefer not to connect? Log in at open.spotify.com in this browser and the embedded player plays full tracks too.</p>';
+    }
+    return h + '</section>';
+  }
 
   /* ------------------------------ settings ------------------------------ */
   views.settings = function () {
@@ -1222,6 +1248,8 @@
       case 'sync-now': if (sync) sync.sync().then(function () { render(true); }); break;
       case 'sync-off': if (sync && confirm('Stop syncing on this device? Your progress stays here and in your GitHub Gist.')) { sync.disconnect(); render(true); } break;
       case 'music-play': if (music) { music.play(id); setTimeout(function () { render(true); }, 200); } break;
+      case 'spotify-connect': { var inp = document.getElementById('spClientId'), msg = music && music.connect(inp ? inp.value : ''); if (msg) toast(msg); break; }
+      case 'spotify-disconnect': if (music) music.disconnect(); break;
       case 'player-toggle': document.body.classList.toggle('player-open'); break;
     }
   });
@@ -1326,6 +1354,7 @@
   /* ============================== BOOT ============================== */
   document.querySelectorAll('i.ni[data-icon]').forEach(function (n) { n.outerHTML = HK.Icons.svg(n.getAttribute('data-icon'), n.className); });
   music = HK.Music.init(store, document.getElementById('music'), document.getElementById('ambience'), toast);
+  music.onChange(function () { if ((location.hash || '').indexOf('#/soundtrack') === 0) render(true); });
   sync = HK.Sync.init(store);
   sync.onChange(function () { var el = document.getElementById('syncStatus'); if (el) el.innerHTML = syncStatusHtml(); });
   var audit = runAudit();

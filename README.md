@@ -46,7 +46,7 @@ hollow-knight-companion/
 │   └── make_test_save.py   gera um user.dat sintético para testar o importador
 └── tests/
     ├── run-node-tests.js   testes unitários (engine, estado, importador, AES)
-    ├── e2e_functional.py   91 checagens no navegador (Playwright)
+    ├── e2e_functional.py   104 checagens no navegador (Playwright)
     ├── e2e_smoke.py        screenshots desktop/mobile + erros de console
     └── fixtures/user-test.dat
 ```
@@ -162,7 +162,7 @@ node tools/audit.js                 # auditoria 112%
 node tests/run-node-tests.js        # 25 testes unitários
 python3 tools/make_test_save.py     # (re)gera tests/fixtures/user-test.dat — precisa de `cryptography`
 python3 -m http.server 8765 &       # e depois:
-python3 tests/e2e_functional.py     # 91 checagens no navegador — precisa de `playwright` + Chromium
+python3 tests/e2e_functional.py     # 104 checagens no navegador — precisa de `playwright` + Chromium
 ```
 
 ## Limitações conhecidas (V1)
@@ -204,3 +204,10 @@ As imagens em `assets/bg/` são artes de fãs / promocionais de Hollow Knight (�
 - **History** — gráfico da % ao longo dos dias (um ponto por dia de uso; gravado sem mexer no timestamp do sync).
 
 Também: **Trackers → Boss guide** (por boss: HP, ataques, dicas, o que levar, link da Wiki), **Trackers → Essence** (as 15 Whispering Roots por região com a Essence de cada uma), **notas por região** (na página da região) e **perfis de save** (Settings; até 8, cada um com progresso próprio).
+
+## Spotify: música inteira com a sua conta
+O player embutido do Spotify só toca **prévia de 30 s** se o navegador não estiver logado no Spotify. Para tocar a **faixa inteira** da região (e repetir em loop), a página **Soundtrack** tem “Connect Spotify”:
+- Usa o **Web Playback SDK** + login **PKCE** (sem backend e sem client secret). Exige **Spotify Premium** e navegador de computador (no celular o SDK geralmente não funciona — o site volta sozinho para o player embutido).
+- Você cria um app grátis no [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), registra como **Redirect URI** exatamente o endereço mostrado na página (ex.: `https://athoskolling.github.io/Hollow-Thingy/`), marca *Web Playback SDK* e cola o **Client ID**.
+- Tokens ficam só no `localStorage` do navegador (chave `hk-companion-spotify`) — não vão para o export/JSON nem para o Gist de sync.
+- Nada de áudio é baixado ou hospedado; é o próprio Spotify tocando.
