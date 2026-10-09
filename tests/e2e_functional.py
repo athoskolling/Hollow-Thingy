@@ -225,6 +225,8 @@ with sync_playwright() as p:
         return route.fulfill(status=404, json={})
     page.route('https://api.github.com/**', gh)
     page.goto(BASE + '#/save'); page.wait_for_timeout(300)
+    check('Save page: account sign-in is the main option, Gist is tucked away', page.locator('.account-card').count() == 1 and page.locator('details.card.group #syncToken').count() == 1)
+    page.evaluate("document.querySelector('details.card.group').open = true")
     page.fill('#syncToken', 'ghp_test'); page.click('[data-action=sync-connect]'); page.wait_for_timeout(1200)
     check('sync: first connect creates the private gist with progress', len(gists) == 1 and json.loads(list(gists.values())[0]).get('app') == 'hollow-knight-companion')
     remote = json.loads(gists['g1']); remote['checks']['crystal-heart'] = True; remote['updatedAt'] = '2099-01-01T00:00:00.000Z'; gists['g1'] = json.dumps(remote)
@@ -340,6 +342,81 @@ with sync_playwright() as p:
     page.click('[data-action=spotify-disconnect]'); page.wait_for_timeout(300)
     check('Spotify: disconnect clears tokens', js(page, "localStorage.getItem('hk-companion-spotify')") is None or 'RT' not in js(page, "localStorage.getItem('hk-companion-spotify')"))
     check('Spotify: back to the embedded player', js(page, "HKApp.music.state().spotify") == 'off' and page.locator('#spClientId').count() == 1)
+
+    # --- Account login + live cloud sync (Firebase SDK mocked)
+    FB_APP = "export function initializeApp(c){window.__fbcfg=c;return {c}}"
+    FB_AUTH = ("const cbs=[];let cur=null;const auth={currentUser:null};window.__auth={set(u){cur=u;auth.currentUser=u;cbs.forEach(f=>f(u))}};"
+      "export function getAuth(){return auth}export function onAuthStateChanged(a,cb){cbs.push(cb);setTimeout(()=>cb(cur),0);return()=>{}}"
+      "export class GoogleAuthProvider{constructor(){this.id='google'}}export class GithubAuthProvider{constructor(){this.id='github'}}"
+      "export async function signInWithPopup(a,p){window.__popup=p.id;const u={uid:'u1',email:'athos@example.com',displayName:'Athos'};window.__auth.set(u);return{user:u}}"
+      "export async function sendSignInLinkToEmail(a,e,s){window.__sent={email:e,s:s}}"
+      "export function isSignInWithEmailLink(a,u){return /oobCode=/.test(u)}"
+      "export async function signInWithEmailLink(a,e,u){const x={uid:'u1',email:e,displayName:null};window.__auth.set(x);return{user:x}}"
+      "export async function signOut(){window.__auth.set(null)}")
+    FB_FS = ("const data=window.__fsdata=window.__fsdata||{};const ls=[];window.__writes=0;"
+      "function snap(r){const d=data[r.path];return{exists:()=>!!d,data:()=>d,metadata:{hasPendingWrites:false}}}"
+      "function fire(p){ls.forEach(l=>l.r.path===p&&l.cb(snap(l.r)))}window.__remote=(p,d)=>{data[p]=d;fire(p)};"
+      "export function getFirestore(){return{}}export function doc(db,...p){return{path:p.join('/')}}"
+      "export function onSnapshot(r,cb){ls.push({r,cb});setTimeout(()=>cb(snap(r)),20);return()=>{}}"
+      "export async function getDoc(r){return snap(r)}"
+      "export async function setDoc(r,d){window.__writes++;data[r.path]=JSON.parse(JSON.stringify(d));setTimeout(()=>fire(r.path),10)}"
+      "export async function deleteDoc(r){delete data[r.path];setTimeout(()=>fire(r.path),10)}")
+    FBCFG = "{apiKey:'AIzaTest',authDomain:'t.firebaseapp.com',projectId:'t',appId:'1:2:web:3'}"
+    def fb_device(seed_remote=None, preload_cfg=True, local_checks=None):
+        c = b.new_context(viewport={'width': 1366, 'height': 900})
+        for name, src in (('firebase-app.js', FB_APP), ('firebase-auth.js', FB_AUTH), ('firebase-firestore.js', FB_FS)):
+            c.route('https://www.gstatic.com/firebasejs/*/' + name, (lambda body: (lambda r: r.fulfill(content_type='text/javascript', headers={'access-control-allow-origin': '*'}, body=body)))(src))
+        c.route('https://open.spotify.com/**', lambda r: r.abort()); c.route('https://fonts.googleapis.com/**', lambda r: r.abort())
+        init = ''
+        if seed_remote: init += "window.__fsdata={'users/u1':%s};" % json.dumps(seed_remote)
+        if preload_cfg: init += "if(!localStorage.getItem('hk-companion-firebase'))localStorage.setItem('hk-companion-firebase',JSON.stringify(%s));" % FBCFG
+        if local_checks: init += "if(!localStorage.getItem('hk-companion-state'))localStorage.setItem('hk-companion-state',JSON.stringify({version:1,checks:%s,resources:{geo:120,essence:0,grubs:0},updatedAt:new Date().toISOString()}));" % json.dumps({k: True for k in local_checks})
+        if init: c.add_init_script(init)
+        pg = c.new_page(); pg.on('pageerror', lambda e: errors.append('fb pageerror: ' + str(e))); pg.on('dialog', lambda d: d.accept())
+        return c, pg
+    # device 1: configure from the UI, sign in, progress is pushed
+    c1, d1 = fb_device(preload_cfg=False)
+    d1.goto(BASE + '#/save'); d1.wait_for_timeout(400)
+    check('Account: without a Firebase config the card explains setup and accepts a pasted config', d1.locator('#fbConfig').count() == 1)
+    d1.fill('#fbConfig', "const firebaseConfig = { apiKey: 'AIzaTest', authDomain: 't.firebaseapp.com', projectId: 't', appId: '1:2:web:3' };"); d1.click('[data-action=cloud-config]'); d1.wait_for_timeout(600)
+    check('Account: sign-in options Google, GitHub and e-mail link', d1.locator('[data-action=cloud-in]').count() == 2 and d1.locator('#cloudEmail').count() == 1)
+    d1.click('[data-action=cloud-in][data-id=google]'); d1.wait_for_timeout(700)
+    check('Account: Google sign-in works; empty device + empty cloud writes nothing', d1.evaluate("HKApp.cloud.user().email") == 'athos@example.com' and d1.evaluate("window.__writes") == 0)
+    d1.evaluate("HKApp.store.setCheck('mantis-claw', true)"); d1.wait_for_timeout(3000)
+    remote1 = d1.evaluate("window.__fsdata['users/u1']")
+    check('Account: a change is pushed to the account within seconds', remote1 and 'mantis-claw' in json.loads(remote1['state'])['checks'] and remote1['v'] == 1, remote1)
+    check('Account: card shows signed-in state', 'athos@example.com' in d1.locator('.account-card').inner_text() and d1.locator('[data-action=cloud-out]').count() == 1)
+    # device 2: brand-new, empty — must PULL, never overwrite
+    c2, d2 = fb_device(seed_remote=remote1)
+    d2.goto(BASE + '#/save'); d2.wait_for_timeout(500)
+    d2.click('[data-action=cloud-in][data-id=github]'); d2.wait_for_timeout(900)
+    check('Account: a new empty device pulls the account progress (GitHub login)', d2.evaluate("window.__popup") == 'github' and d2.evaluate("HKApp.engine.isDone('mantis-claw')"))
+    check('Account: ...and never overwrites the cloud copy', d2.evaluate("window.__writes") == 0)
+    # live update from another device
+    r = json.loads(remote1['state']); r['checks']['crystal-heart'] = True; r['updatedAt'] = '2099-01-01T00:00:00.000Z'
+    d2.evaluate("window.__remote('users/u1', {state: %s, updatedAt: '2099-01-01T00:00:00.000Z', v: 1})" % json.dumps(json.dumps(r))); d2.wait_for_timeout(500)
+    check('Account: live update from another device is applied without reloading', d2.evaluate("HKApp.engine.isDone('crystal-heart')"))
+    # conflict on first link
+    c3, d3 = fb_device(seed_remote=remote1, local_checks=['kings-brand'])
+    d3.goto(BASE + '#/save'); d3.wait_for_timeout(500)
+    d3.click('[data-action=cloud-in][data-id=google]'); d3.wait_for_timeout(900)
+    check('Account: both sides have different progress → asks what to keep, nothing overwritten yet', d3.locator('[data-action=cloud-resolve]').count() == 3 and d3.evaluate("window.__writes") == 0)
+    d3.click('[data-action=cloud-resolve][data-id=merge]'); d3.wait_for_timeout(900)
+    mg = json.loads(d3.evaluate("window.__fsdata['users/u1'].state"))['checks']
+    check('Account: merge keeps both sides’ progress locally and in the cloud', d3.evaluate("HKApp.engine.isDone('kings-brand') && HKApp.engine.isDone('mantis-claw')") and 'kings-brand' in mg and 'mantis-claw' in mg, mg)
+    # e-mail link
+    c4, d4 = fb_device()
+    d4.goto(BASE + '#/save'); d4.wait_for_timeout(500)
+    d4.fill('#cloudEmail', 'not-an-email'); d4.click('[data-action=cloud-email]'); d4.wait_for_timeout(300)
+    check('Account: invalid e-mail is rejected', d4.evaluate("window.__sent") is None and 'look right' in d4.locator('.account-card').inner_text())
+    d4.fill('#cloudEmail', 'athos@example.com'); d4.click('[data-action=cloud-email]'); d4.wait_for_timeout(500)
+    sent = d4.evaluate("window.__sent")
+    check('Account: e-mail sign-in link requested for this site address', sent and sent['email'] == 'athos@example.com' and sent['s']['handleCodeInApp'] is True and sent['s']['url'] == BASE.split('#')[0], sent)
+    d4.goto(BASE + '?oobCode=abc&mode=signIn&apiKey=k#/save'); d4.wait_for_timeout(1000)
+    check('Account: opening the link signs in and cleans the address bar', d4.evaluate("HKApp.cloud.user() && HKApp.cloud.user().email") == 'athos@example.com' and 'oobCode' not in d4.url, d4.url)
+    d4.click('[data-action=cloud-out]'); d4.wait_for_timeout(400)
+    check('Account: sign out returns to the sign-in options', d4.locator('[data-action=cloud-in]').count() == 2)
+    for cx in (c1, c2, c3, c4): cx.close()
 
     # --- mobile menu
     m = b.new_context(viewport={'width': 390, 'height': 844}).new_page()

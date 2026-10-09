@@ -142,5 +142,35 @@ t('every geo-priced item has a numeric cost and farms have a wiki source', () =>
   D.ITEMS.filter(i => i.cost && i.cost.geo !== undefined).forEach(i => assert.ok(Number.isFinite(i.cost.geo) && i.cost.geo > 0, i.id));
   D.FARMS.forEach(f => assert.ok(f.name && f.where && f.wiki));
 });
+
+/* ---- Account / cloud sync (pure parts) ---- */
+const Cloud = require(path.join(root, 'js/cloud.js'));
+t('a brand-new device starts at epoch so it can never overwrite synced progress', () => {
+  const { s } = fresh(); assert.strictEqual(Date.parse(s.get().updatedAt), 0);
+  assert.ok(Cloud.isPristine(s.get()));
+  s.setCheck('mantis-claw', true); assert.ok(Date.parse(s.get().updatedAt) > 0); assert.ok(!Cloud.isPristine(s.get()));
+});
+t('cloud merge: union of checks, max of resources, notes/later/builds/history combined', () => {
+  const a = { checks: { 'mantis-claw': true }, resources: { geo: 100, essence: 5, grubs: 1 }, notes: { x: 'local' }, later: ['kingsoul'], builds: [{ id: 'b1', name: 'A', charms: [] }], history: [{ d: '2026-10-01', v: 4, c: 3 }], settings: { spoilers: true }, currentRegion: 'greenpath' };
+  const b = { checks: { 'crystal-heart': true }, resources: { geo: 50, essence: 9, grubs: 0 }, notes: { x: 'remote', y: 'r' }, later: ['kingsoul', 'mantis-claw'], builds: [{ id: 'b1', name: 'B', charms: [] }, { id: 'b2', name: 'C', charms: [] }], history: [{ d: '2026-10-01', v: 6, c: 5 }, { d: '2026-10-02', v: 7, c: 6 }], settings: {}, currentRegion: 'dirtmouth' };
+  const m = Cloud.merge(a, b);
+  assert.deepStrictEqual(Object.keys(m.checks).sort(), ['crystal-heart', 'mantis-claw']);
+  assert.deepStrictEqual(m.resources, { geo: 100, essence: 9, grubs: 1 });
+  assert.deepStrictEqual(m.notes, { x: 'local', y: 'r' }); assert.deepStrictEqual(m.later, ['kingsoul', 'mantis-claw']);
+  assert.deepStrictEqual(m.builds.map(x => x.id), ['b1', 'b2']); assert.deepStrictEqual(m.history, [{ d: '2026-10-01', v: 6, c: 5 }, { d: '2026-10-02', v: 7, c: 6 }]);
+  assert.strictEqual(m.currentRegion, 'greenpath');
+  const s = St.createStore(D, null); s.importJSON(Object.assign({ version: 1 }, m)); assert.ok(s.isChecked('crystal-heart') && s.isChecked('mantis-claw'));
+});
+t('cloud: sameProgress ignores order/timestamps; parseConfig reads the Firebase snippet', () => {
+  assert.ok(Cloud.sameProgress({ checks: { a: true, b: true }, resources: { geo: 1 }, updatedAt: 'x' }, { checks: { b: true, a: true }, resources: { geo: 1 }, updatedAt: 'y' }));
+  assert.ok(!Cloud.sameProgress({ checks: { a: true } }, { checks: {} }));
+  const c = Cloud.parseConfig('const firebaseConfig = {\n apiKey: "AIzaX",\n authDomain: "p.firebaseapp.com",\n projectId: "p",\n appId: "1:2:web:3",\n};');
+  assert.deepStrictEqual([c.apiKey, c.projectId, c.appId], ['AIzaX', 'p', '1:2:web:3']);
+  assert.strictEqual(Cloud.parseConfig('nothing here'), null);
+});
+t('firestore.rules: owner-only, validated fields, default deny', () => {
+  const r = fs.readFileSync(path.join(root, 'firestore.rules'), 'utf8');
+  assert.ok(/request\.auth\.uid == uid/.test(r) && /hasOnly\(\['state', 'updatedAt', 'v'\]\)/.test(r) && /allow read, write: if false/.test(r));
+});
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

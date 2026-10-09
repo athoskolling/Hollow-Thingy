@@ -12,7 +12,8 @@
   var expanded = {};             // expanded item rows (UI only)
   var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, panelRegion: null, regionTab: 'overview', panelAll: false };
   var music = null;               // region soundtrack player (audio.js)
-  var sync = null;                // optional sync between devices (sync.js)
+  var sync = null;                // optional sync between devices (sync.js — Gist, legacy)
+  var cloud = null;               // optional account login + live cloud sync (cloud.js — Firebase)
 
   /* ============================== helpers ============================== */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -994,9 +995,50 @@
     return '<span class="sync-pill ' + cls + '">' + (x.state === 'error' ? '⚠ ' : x.state === 'ok' ? '✓ ' : '⟳ ') + esc(x.msg || 'Connected') + '</span>' +
       (x.at ? ' <small class="muted">last sync ' + new Date(x.at).toLocaleString() + '</small>' : '');
   }
+  function accountCard() {
+    var x = cloud.status(), u = cloud.user();
+    var h = '<section class="card sync-card account-card"><h3>' + ico('loop') + ' Account &amp; sync</h3>';
+    if (!cloud.configured()) {
+      return h + '<p>Sign in to keep the <b>same progress on every device</b>, updating live. This needs a (free) Firebase project — one-time setup by the site owner:</p>' +
+        '<ol class="small sync-steps"><li>Follow <b>README → “Conta e login (Firebase)”</b> (create the project, enable Google / GitHub / e-mail link, create Firestore, publish <code>firestore.rules</code>).</li>' +
+        '<li>Paste the <code>firebaseConfig</code> from Firebase here (kept only in this browser), or put it in <code>js/firebase-config.js</code> and deploy:</li></ol>' +
+        '<textarea id="fbConfig" rows="5" placeholder="const firebaseConfig = { apiKey: &quot;…&quot;, authDomain: &quot;…&quot;, projectId: &quot;…&quot;, appId: &quot;…&quot; };" aria-label="Firebase config"></textarea>' +
+        '<div class="btn-row"><button class="btn btn-primary" data-action="cloud-config">Use this config</button></div></section>';
+    }
+    var cls = { ok: 'ok', busy: 'busy', pending: 'busy', loading: 'busy', error: 'err' }[x.state] || 'off';
+    var pill = x.msg && x.state !== 'conflict' ? '<p><span class="sync-pill ' + cls + '">' + (x.state === 'error' ? '⚠ ' : x.state === 'ok' ? '✓ ' : '') + esc(x.msg) + '</span>' + (x.at && x.state === 'ok' ? ' <small class="muted">last sync ' + new Date(x.at).toLocaleString() + '</small>' : '') + '</p>' : '';
+    if (u) {
+      h += '<p>Signed in as <b>' + esc(u.email || u.name || 'your account') + '</b>.</p>' + pill;
+      if (x.state === 'conflict' && x.conflict) {
+        var cr = x.conflict.remote, cl = x.conflict.local;
+        h += '<div class="banner warn"><b>Both this device and your account already have progress.</b> Pick what to keep:' +
+          '<div class="sync-conflict"><div><b>This device</b><small>' + Object.keys(cl.checks || {}).length + ' ticked · ' + fmt((cl.resources || {}).geo || 0) + ' Geo</small></div>' +
+          '<div><b>Your account</b><small>' + Object.keys(cr.checks || {}).length + ' ticked · ' + fmt((cr.resources || {}).geo || 0) + ' Geo</small></div></div>' +
+          '<div class="btn-row"><button class="btn btn-primary" data-action="cloud-resolve" data-id="merge">Merge both (recommended)</button>' +
+          '<button class="btn" data-action="cloud-resolve" data-id="cloud">Use my account’s</button><button class="btn" data-action="cloud-resolve" data-id="device">Use this device’s</button></div>' +
+          '<small class="muted">Merge keeps everything ticked on either side and the larger Geo / Essence / Grubs.</small></div>';
+      }
+      h += '<div class="btn-row"><button class="btn btn-primary" data-action="cloud-sync">' + ico('loop') + ' Sync now</button><button class="btn ghost" data-action="cloud-out">Sign out</button><button class="btn ghost danger" data-action="cloud-delete">Delete my cloud copy</button></div>' +
+        '<p class="muted small">Updates live while the site is open on any signed-in device; the most recent save wins. Only the <b>Main save</b> is synced. Your progress is stored in your own private Firestore document — nobody else can read it.</p>';
+    } else if (x.state === 'needemail') {
+      h += '<p>Almost there — type the e-mail you used to request the link:</p><div class="sync-form"><input id="cloudEmail2" type="email" autocomplete="email" placeholder="you@example.com" aria-label="E-mail"><button class="btn btn-primary" data-action="cloud-email-done">Finish sign-in</button></div>' + pill;
+    } else {
+      h += '<p>Sign in to see the <b>same progress on your computer, phone and notebook</b>, updating live. First time on a device? Your local progress is merged safely — it never wipes what’s in your account.</p>' + pill +
+        '<div class="btn-row"><button class="btn btn-primary" data-action="cloud-in" data-id="google">Continue with Google</button><button class="btn" data-action="cloud-in" data-id="github">Continue with GitHub</button></div>' +
+        '<div class="sync-form"><input id="cloudEmail" type="email" autocomplete="email" placeholder="or type your e-mail for a sign-in link" aria-label="E-mail for sign-in link"><button class="btn" data-action="cloud-email">Send link</button></div>' +
+        '<p class="muted small">No password to remember. ' + (localStorage.getItem('hk-companion-firebase') ? '<button class="link-btn" data-action="cloud-clearcfg">Remove saved Firebase config</button>' : '') + '</p>';
+    }
+    return h + '</section>';
+  }
   function syncCard() {
+    var h = accountCard();
+    if (cloud.user()) return h;
+    var g = syncCardGist();
+    return h + '<details class="card group"' + (sync && sync.connected() ? ' open' : '') + '><summary><h3>Alternative: private GitHub Gist (token)</h3><span class="muted small">older method</span></summary>' + g + '</details>';
+  }
+  function syncCardGist() {
     var on = sync && sync.connected();
-    var h = '<section class="card sync-card"><h3>' + ico('loop') + ' Sync between devices</h3>';
+    var h = '<div class="sync-card"><h3 hidden>Gist</h3>';
     h += '<p>See the <b>same progress</b> on your computer, phone and notebook. The site keeps a copy in a <b>private Gist</b> on your own GitHub account — no other server involved.</p>';
     h += '<p id="syncStatus">' + syncStatusHtml() + '</p>';
     if (on) {
@@ -1008,11 +1050,11 @@
         '<div class="sync-form"><input id="syncToken" type="password" autocomplete="off" placeholder="ghp_…" aria-label="GitHub token with gist permission"><button class="btn btn-primary" data-action="sync-connect">Connect</button></div>' +
         '<p class="muted small">The token is stored only in this browser and only allows reading/writing your Gists. You can revoke it on GitHub any time.</p>';
     }
-    return h + '</section>';
+    return h + '</div>';
   }
   views.save = function () {
     var s = st();
-    var h = '<header class="page-head"><h1>Save & Backup</h1><p class="lead">Everything is saved automatically in this browser (localStorage). Last change: ' + new Date(s.updatedAt).toLocaleString() + '</p></header>';
+    var h = '<header class="page-head"><h1>Save & Backup</h1><p class="lead">Everything is saved automatically in this browser (localStorage). Last change: ' + (Date.parse(s.updatedAt) > 0 ? new Date(s.updatedAt).toLocaleString() : 'none yet') + '</p></header>';
     h += syncCard();
     h += '<section class="card"><h3>⚙ Update my save</h3><p>Quick editor for abilities, spells, Dream Nail, nail, resources and progress — the same data as the checklist.</p><button class="btn btn-primary" data-action="open-editor">⚙ UPDATE MY SAVE</button></section>';
     h += '<section class="card"><h3>📂 Import Hollow Knight save (PC)</h3>' +
@@ -1244,6 +1286,18 @@
         }
         break;
       case 'apply-import': applyImport(); break;
+      case 'cloud-config': { var ta = document.getElementById('fbConfig'); if (!cloud.setConfig(ta ? ta.value : '')) toast('Couldn’t read that config — paste the whole firebaseConfig block.', 'err'); else render(true); break; }
+      case 'cloud-clearcfg': cloud.clearConfig(); break;
+      case 'cloud-in': cloud.signIn(id); break;
+      case 'cloud-email': { var ce = document.getElementById('cloudEmail'); cloud.sendLink(ce ? ce.value : ''); break; }
+      case 'cloud-email-done': { var c2 = document.getElementById('cloudEmail2'); cloud.completeLink(c2 ? c2.value : ''); break; }
+      case 'cloud-sync': cloud.sync(); break;
+      case 'cloud-resolve': cloud.resolve(id).then(function () { render(true); }); break;
+      case 'cloud-out': cloud.signOut(); break;
+      case 'cloud-delete':
+        if (t && t.getAttribute('data-armed') !== '1') { t.setAttribute('data-armed', '1'); t.textContent = '⚠ Tap again to delete'; setTimeout(function () { if (t.isConnected) { t.removeAttribute('data-armed'); t.textContent = 'Delete my cloud copy'; } }, 5000); }
+        else cloud.deleteCloud();
+        break;
       case 'sync-connect': { var tk = document.getElementById('syncToken'); if (sync && tk) { sync.connect(tk.value).then(function (r) { render(true); if (r !== 'error') toast('🔗 Sync connected', 'ok'); }); } break; }
       case 'sync-now': if (sync) sync.sync().then(function () { render(true); }); break;
       case 'sync-off': if (sync && confirm('Stop syncing on this device? Your progress stays here and in your GitHub Gist.')) { sync.disconnect(); render(true); } break;
@@ -1356,6 +1410,8 @@
   music = HK.Music.init(store, document.getElementById('music'), document.getElementById('ambience'), toast);
   music.onChange(function () { if ((location.hash || '').indexOf('#/soundtrack') === 0) render(true); });
   sync = HK.Sync.init(store);
+  cloud = HK.Cloud.init(store);
+  cloud.onChange(function () { if ((location.hash || '').indexOf('#/save') === 0) render(true); });
   sync.onChange(function () { var el = document.getElementById('syncStatus'); if (el) el.innerHTML = syncStatusHtml(); });
   var audit = runAudit();
   if (audit.errors.length) console.error('[HK] 112% audit FAILED', audit.errors); else console.info('[HK] 112% audit passed — total', audit.total);
@@ -1363,5 +1419,5 @@
   recHist();
   render(false);
   // expose for debugging/tests
-  window.HKApp = { store: store, engine: E, render: render, runAudit: runAudit, openItem: openItem, music: music, ui: ui, sync: function () { return sync; } };
+  window.HKApp = { cloud: cloud, store: store, engine: E, render: render, runAudit: runAudit, openItem: openItem, music: music, ui: ui, sync: function () { return sync; } };
 })();

@@ -22,7 +22,8 @@
       later: [],
       history: [],
       builds: [],
-      updatedAt: new Date().toISOString()
+      /* epoch = "never changed on this device": a brand-new device must never overwrite synced progress */
+      updatedAt: '1970-01-01T00:00:00.000Z'
     };
   }
 

@@ -33,7 +33,9 @@ hollow-knight-companion/
 │   ├── guide.js            guia de bosses (HP, ataques, dicas), árvores de Essence e itens perdíveis — cada entrada com link da Wiki
 │   ├── poi.js              pontos de interesse por região (benches, stags, vendedores, NPCs, springs…)
 │   ├── icons.js / art.js   ícones e ilustrações SVG originais (procedurais)
-│   ├── sync.js             sincronização opcional entre aparelhos (Gist privado)
+│   ├── cloud.js            conta + login (Google/GitHub/e-mail) e sync ao vivo via Firebase (opcional)
+│   ├── firebase-config.js  config pública do seu projeto Firebase (vazio por padrão)
+│   ├── sync.js             sincronização antiga entre aparelhos (Gist privado)
 │   ├── state.js            state manager único (localStorage, export/import JSON versionado, reset)
 │   ├── roadmap.js          engine: dependências, completion 112%, progresso por região, Next Objective
 │   ├── save-importer.js    leitor do save real do PC (user#.dat) — decodifica localmente
@@ -46,12 +48,14 @@ hollow-knight-companion/
 │   └── make_test_save.py   gera um user.dat sintético para testar o importador
 └── tests/
     ├── run-node-tests.js   testes unitários (engine, estado, importador, AES)
-    ├── e2e_functional.py   104 checagens no navegador (Playwright)
+    ├── e2e_functional.py   119 checagens no navegador (Playwright)
     ├── e2e_smoke.py        screenshots desktop/mobile + erros de console
     └── fixtures/user-test.dat
 ```
 
 ## Mesmo progresso no computador, celular e notebook
+
+> Recomendado: **conta com login** (seção “Conta e login (Firebase)” mais abaixo). O método do Gist, descrito aqui, continua disponível como alternativa.
 
 O site fica online no GitHub Pages (https://athoskolling.github.io/Hollow-Thingy/). O que fica **local** é o progresso:
 cada navegador guarda o seu no `localStorage`. Para compartilhar entre aparelhos, o site sincroniza com um **Gist
@@ -159,10 +163,10 @@ Limitações do importador:
 
 ```bash
 node tools/audit.js                 # auditoria 112%
-node tests/run-node-tests.js        # 25 testes unitários
+node tests/run-node-tests.js        # 29 testes unitários
 python3 tools/make_test_save.py     # (re)gera tests/fixtures/user-test.dat — precisa de `cryptography`
 python3 -m http.server 8765 &       # e depois:
-python3 tests/e2e_functional.py     # 104 checagens no navegador — precisa de `playwright` + Chromium
+python3 tests/e2e_functional.py     # 119 checagens no navegador — precisa de `playwright` + Chromium
 ```
 
 ## Limitações conhecidas (V1)
@@ -211,3 +215,28 @@ O player embutido do Spotify só toca **prévia de 30 s** se o navegador não es
 - Você cria um app grátis no [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), registra como **Redirect URI** exatamente o endereço mostrado na página (ex.: `https://athoskolling.github.io/Hollow-Thingy/`), marca *Web Playback SDK* e cola o **Client ID**.
 - Tokens ficam só no `localStorage` do navegador (chave `hk-companion-spotify`) — não vão para o export/JSON nem para o Gist de sync.
 - Nada de áudio é baixado ou hospedado; é o próprio Spotify tocando.
+
+## Conta e login (Firebase)
+Login de verdade (Google, GitHub ou link por e-mail) e sincronização **ao vivo** entre aparelhos. O site continua estático no GitHub Pages; o Firebase só guarda o seu progresso (Auth + Firestore, plano gratuito Spark). As chaves do Firebase para web **não são segredo** — quem protege os dados são o login e o `firestore.rules` (cada usuário só lê/escreve o próprio documento `users/{uid}`).
+
+### Configurar (uma vez)
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Adicionar projeto** (pode desligar o Analytics).
+2. **Build → Authentication → Get started → Sign-in method** e ative:
+   - **Google** (basta ativar);
+   - **E-mail/senha** → ative também **“Link por e-mail (login sem senha)”**;
+   - **GitHub**: crie um OAuth App em github.com/settings/developers → *New OAuth App*, com **Authorization callback URL** = a URL que o Firebase mostra (`https://SEU-PROJETO.firebaseapp.com/__/auth/handler`); cole o *Client ID* e o *Client secret* no Firebase.
+3. **Authentication → Settings → Authorized domains** → adicione `athoskolling.github.io` (e `localhost` já vem).
+4. **Build → Firestore Database → Create database** (modo produção). Aba **Rules** → cole o conteúdo de `firestore.rules` → **Publish**.
+5. **Project settings (engrenagem) → Your apps → Web (`</>`)** → registre um app e copie o `firebaseConfig`.
+6. Coloque a config em `js/firebase-config.js` (`window.HK_FIREBASE = {...}`) e faça push — ou cole no próprio site em **My Save → Account & sync** (fica só naquele navegador).
+
+### Como funciona
+- Entre com Google/GitHub/e-mail em **My Save**; nos outros aparelhos, o mesmo login. Sem token para colar.
+- Atualiza **ao vivo** (Firestore `onSnapshot`) e ~2 s depois de cada mudança; vale o salvamento mais recente.
+- **Primeira vez num aparelho**: se só um lado tem progresso, ele é usado; se os dois têm e diferem, o site pergunta — *Merge* (união dos itens marcados + maiores Geo/Essence/Grubs), *usar da conta* ou *usar deste aparelho*. Um aparelho novo e vazio **nunca** sobrescreve a nuvem.
+- Só o perfil **Main save** sincroniza. “Delete my cloud copy” apaga o documento da nuvem; “Sign out” desconecta o aparelho.
+- Spotify continua por aparelho (tokens nunca vão para a nuvem).
+- O SDK do Firebase é carregado do `gstatic.com` só quando existe uma config.
+
+### Deploy
+O deploy segue igual: `git push` na `main` → GitHub Pages. Se um dia hospedar em outro domínio, adicione-o em *Authorized domains* e ajuste o Redirect URI do Spotify.
