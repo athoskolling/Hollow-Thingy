@@ -133,18 +133,18 @@
     if (it.excludes && it.excludes.some(E.isDone)) h += '<div class="banner warn compact">Mutually exclusive with: ' + it.excludes.map(function (x) { return chip(x); }).join(' ') + '</div>';
     var mz = missablesFor([it.id]); if (mz.length) h += mz.map(function (m) { return '<a class="banner warn compact" href="#/plan/missables">⚠️ <b>' + esc(m.title) + '</b> — ' + esc(m.warning.split('. ')[0]) + '. <u>Details</u></a>'; }).join('');
     h += '<dl class="facts' + (s.settings.spoilers && !done ? ' spoiler' : '') + '">';
-    h += '<dt>📍 Location</dt><dd><a href="#/region/' + it.region + '">' + esc(regionName(it.region)) + '</a>' + (it.loc ? ' — <span class="sp">' + esc(it.loc) + '</span>' : '') + '</dd>';
-    if (it.fn || it.reward) h += '<dt>🎯 Function</dt><dd>' + esc(it.fn || '') + (it.reward ? (it.fn ? '<br>' : '') + 'Reward: ' + esc(it.reward) : '') + '</dd>';
-    h += '<dt>🔑 Requirements</dt><dd>' + reqHtml(it) + '</dd>';
-    if (it.how) h += '<dt>🧭 How to get</dt><dd class="sp">' + esc(it.how) + (it.tip ? '<br><em>Tip: ' + esc(it.tip) + '</em>' : '') + '</dd>';
+    h += '<dt>Location</dt><dd><a href="#/region/' + it.region + '">' + esc(regionName(it.region)) + '</a>' + (it.loc ? ' — <span class="sp">' + esc(it.loc) + '</span>' : '') + '</dd>';
+    if (it.fn || it.reward) h += '<dt>Function</dt><dd>' + esc(it.fn || '') + (it.reward ? (it.fn ? '<br>' : '') + 'Reward: ' + esc(it.reward) : '') + '</dd>';
+    h += '<dt>Requirements</dt><dd>' + reqHtml(it) + '</dd>';
+    if (it.how) h += '<dt>How to get</dt><dd class="sp">' + esc(it.how) + (it.tip ? '<br><em>Tip: ' + esc(it.tip) + '</em>' : '') + '</dd>';
     var unlocks = (it.unlocks || []).concat(DATA.ITEMS.filter(function (x) { return x.req.indexOf(it.id) >= 0 && (it.unlocks || []).indexOf(x.id) < 0; }).map(function (x) { return x.id; }));
-    if (unlocks.length) h += '<dt>🔓 Unlocks</dt><dd>' + unlocks.slice(0, 14).map(function (u) { return chip(u); }).join(' ') + '</dd>';
-    if (DATA.BOSS_DIFF[it.id]) h += '<dt>⚔ Difficulty</dt><dd>' + diffBadge(DATA.BOSS_DIFF[it.id]) + ' <span class="muted small">editorial estimate</span></dd>';
-    h += '<dt>📈 112%</dt><dd>' + completionText(it) + '</dd>';
-    if (it.cost && (it.cost.geo || it.cost.ore)) h += '<dt>💰 Cost</dt><dd>' + (it.cost.geo ? fmt(it.cost.geo) + ' Geo' : '') + (it.cost.ore ? ' + ' + it.cost.ore + ' Pale Ore' : '') + (it.cost.geo ? ' <span class="muted">(you have ' + fmt(s.resources.geo) + ')</span>' : '') + '</dd>';
-    if (it.essence) h += '<dt>✧ Essence</dt><dd>' + it.essence + '</dd>';
-    if (it.notches) h += '<dt>✦ Notches</dt><dd>' + '◆'.repeat(it.notches) + ' (' + it.notches + ')</dd>';
-    if (it.wiki) h += '<dt>🔗 Wiki</dt><dd><a href="' + it.wiki + '" target="_blank" rel="noopener">' + esc(it.wiki.replace('https://', '')) + ' ↗</a></dd>';
+    if (unlocks.length) h += '<dt>Unlocks</dt><dd>' + unlocks.slice(0, 14).map(function (u) { return chip(u); }).join(' ') + '</dd>';
+    if (DATA.BOSS_DIFF[it.id]) h += '<dt>Difficulty</dt><dd>' + diffBadge(DATA.BOSS_DIFF[it.id]) + ' <span class="muted small">editorial estimate</span></dd>';
+    h += '<dt>112%</dt><dd>' + completionText(it) + '</dd>';
+    if (it.cost && (it.cost.geo || it.cost.ore)) h += '<dt>Cost</dt><dd>' + (it.cost.geo ? fmt(it.cost.geo) + ' Geo' : '') + (it.cost.ore ? ' + ' + it.cost.ore + ' Pale Ore' : '') + (it.cost.geo ? ' <span class="muted">(you have ' + fmt(s.resources.geo) + ')</span>' : '') + '</dd>';
+    if (it.essence) h += '<dt>Essence</dt><dd>' + it.essence + '</dd>';
+    if (it.notches) h += '<dt>Notches</dt><dd>' + '◆'.repeat(it.notches) + ' (' + it.notches + ')</dd>';
+    if (it.wiki) h += '<dt>Wiki</dt><dd><a href="' + it.wiki + '" target="_blank" rel="noopener">' + esc(it.wiki.replace('https://', '')) + ' ↗</a></dd>';
     h += '</dl>';
     if (HK.GUIDE && HK.GUIDE.BOSSES[it.id]) h += '<details class="obj-how"><summary>⚔ Boss guide</summary>' + bossGuideHtml(it.id) + '</details>';
     if (!it.derived) {
@@ -194,9 +194,29 @@
       '<input type="number" inputmode="numeric" min="0"' + (max ? ' max="' + max + '"' : '') + ' value="' + val + '" data-action="res" data-key="' + key + '" aria-label="' + label + '">' +
       '<button class="icon-btn" data-action="res-step" data-key="' + key + '" data-step="1" aria-label="Increase ' + label + '">+</button></div></label>';
   }
+
+  /* ------------------------------ region menu (custom listbox) ------------------------------ */
+  var REGION_DOT = { dirtmouth: '#9aa3b5', 'forgotten-crossroads': '#8f93a8', greenpath: '#6fae6a', 'fungal-wastes': '#c9a24a', 'city-of-tears': '#7aa2d6', 'crystal-peak': '#d77fc6',
+    'resting-grounds': '#b7b2a0', 'royal-waterways': '#4fb3a6', 'fog-canyon': '#b58bd1', 'ancient-basin': '#5b7fa0', 'kingdoms-edge': '#c9694a', deepnest: '#8a7a72', 'the-hive': '#e0a42f',
+    'howling-cliffs': '#a8c0cc', 'queens-gardens': '#7bbf7f', 'the-abyss': '#6a6f8e', 'white-palace': '#ece9df', godhome: '#e8c96a' };
+  function regionMenu(cur, label) {
+    var rows = DATA.REGIONS.map(function (r) {
+      var done = E.regionStatus(r.id) === 'complete', g = DATA.REGION_GUIDE[r.id] || {};
+      return '<button type="button" class="rm-opt' + (r.id === cur ? ' on' : '') + '" role="option" aria-selected="' + (r.id === cur) + '" data-action="region-pick" data-id="' + r.id + '">' +
+        '<i class="rm-dot" style="background:' + (REGION_DOT[r.id] || '#9aa3b5') + '"></i><span class="rm-name">' + esc(shortRegion(r.id)) + '</span>' +
+        (done ? '<span class="rm-done">done</span>' : diffBadge(g.diff, false)) + '</button>';
+    }).join('');
+    return '<div class="region-menu"><button type="button" class="region-pill" data-action="region-toggle" aria-haspopup="listbox" aria-expanded="false">' +
+      '<i class="rm-dot" style="background:' + (REGION_DOT[cur] || '#9aa3b5') + '"></i>' + (label || 'Change region') +
+      '<svg class="rp-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>' +
+      '<div class="rm-list" role="listbox" aria-label="Region" hidden><p class="rm-hint">Where are you now? Difficulty on the right.</p>' + rows + '</div></div>';
+  }
+  function closeRegionMenus() {
+    document.querySelectorAll('.region-menu .rm-list').forEach(function (l) { l.hidden = true; });
+    document.querySelectorAll('.region-pill[aria-expanded=true]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+  }
   function regionSelect() {
-    return '<label class="region-select">📍 <span>I AM CURRENTLY IN:</span><select data-action="region">' +
-      DATA.REGIONS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === st().currentRegion ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label>';
+    return '<div class="region-select"><span>You are in <b>' + esc(shortRegion(st().currentRegion)) + '</b></span>' + regionMenu(st().currentRegion, 'Change') + '</div>';
   }
   function warningsBox() {
     var w = E.inconsistencies();
@@ -294,8 +314,7 @@
     var here = E.whileHere(cur, nxt && nxt.item.id, 5);
     h += '<div class="duo">';
     h += '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' In ' + esc(shortRegion(cur)) + '</h3>' +
-      '<label class="region-pill" title="Change the region you are in"><span class="rp-label">' + ico('pin') + 'Change region</span><svg class="rp-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>' +
-        '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { var stt = E.regionStatus(r.id); return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + (stt === 'complete' ? '✓ ' : r.id === cur ? '● ' : '\u2003') + esc(r.name) + '</option>'; }).join('') + '</select></label></div>' +
+      regionMenu(cur) + '</div>' +
       leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <a class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '" href="#/region/' + cur + '">' + ({ blocked: 'missing a minimum', under: 'under-prepared', almost: 'almost ready', ready: 'ready' })[R.level] + ' →</a></p>' : ''; })() +
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
       '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a></section>';
@@ -372,8 +391,8 @@
   function okMark(ok) { return ok ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>'; }
   function readinessCard(id) {
     var R = E.readiness(id); if (!R) return '';
-    var lv = { blocked: ['🔒 Missing a minimum', 'neg'], under: ['⚠️ Under-prepared', 'neg'], almost: ['🟡 Almost ready', 'gold'], ready: ['✅ Ready', 'pos'] }[R.level];
-    var h = '<details class="card readiness"><summary><h3>🎯 Requirements</h3>' + diffBadge(R.diff) + '<span class="rd-state ' + lv[1] + '">' + lv[0] + '</span></summary>';
+    var lv = { blocked: ['Missing a minimum', 'neg'], under: ['Under-prepared', 'neg'], almost: ['Almost ready', 'gold'], ready: ['Ready', 'pos'] }[R.level];
+    var h = '<details class="card readiness"><summary><h3>Requirements</h3>' + diffBadge(R.diff) + '<span class="rd-state ' + lv[1] + '">' + lv[0] + '</span></summary>';
     h += '<p class="small muted">' + esc(R.why) + '</p>';
     var hf = E.hardestFight(id);
     if (hf) h += '<p class="small muted">Hardest fight: <b>' + esc(hf.item.name) + '</b> ' + diffBadge(hf.diff, false) + '</p>';
@@ -399,7 +418,7 @@
     var P = E.regionPlan(id), have = st().resources.geo, G = P.geo;
     if (!P.left) return '<p class="pos small">✓ Everything in this region is done.</p>';
     var bits = ['<b>' + P.main + '</b> main · ' + (P.left - P.main) + ' optional left'];
-    if (G.remaining) bits.push('💰 <b class="gold">' + fmt(G.mainRemaining) + '</b> Geo main' + (G.remaining !== G.mainRemaining ? ' (' + fmt(G.remaining) + ' with optional)' : '') + (G.mainRemaining > have ? ' · missing <b class="neg">' + fmt(G.mainRemaining - have) + '</b>' : ' · <span class="pos">enough</span>'));
+    if (G.remaining) bits.push('<b class="gold">' + fmt(G.mainRemaining) + '</b> Geo main' + (G.remaining !== G.mainRemaining ? ' (' + fmt(G.remaining) + ' with optional)' : '') + (G.mainRemaining > have ? ' · missing <b class="neg">' + fmt(G.mainRemaining - have) + '</b>' : ' · <span class="pos">enough</span>'));
     if (P.ore) bits.push('Pale Ore ×' + P.ore);
     if (P.essence) bits.push('✧ ' + fmt(P.essence) + ' Essence');
     return '<p class="left-line small">' + bits.join(' · ') + '</p>' + (full ? '<p class="muted small">' + kindChips(P) + '</p>' : '');
@@ -409,7 +428,7 @@
     return i > 0 && i < 170 ? t.slice(0, i + 1) : (t.length > 170 ? t.slice(0, 167) + '…' : t);
   }
   function leftCard(id) {
-    var P = E.regionPlan(id); if (!P.left) return '<section class="card left-card"><div class="card-title"><h3>📋 What\'s left here</h3></div>' + leftSummary(id) + '</section>';
+    var P = E.regionPlan(id); if (!P.left) return '<section class="card left-card"><div class="card-title"><h3>What\'s left here</h3></div>' + leftSummary(id) + '</section>';
     var avail = E.whileHere(id, null), locked = DATA.ITEMS.filter(function (i) {
       return i.region === id && !i.derived && !i.beyond && !E.isDone(i.id) && !E.isImplied(i.id) && !(i.voidHeart && E.isVoidHeartLocked()) && !(i.excludes && i.excludes.some(E.isDone)) && !E.isAvailable(i);
     });
@@ -420,7 +439,7 @@
         '<div class="step-how">' + (cost ? '<p>' + cost + '</p>' : '') + (shortHow(i) ? '<p class="sp muted small">' + esc(shortHow(i)) + '</p>' : '') + miss + '</div></li>';
     }
     var main = avail.filter(function (i) { return !i.optional; }), opt = avail.filter(function (i) { return i.optional; });
-    var h = '<section class="card left-card"><div class="card-title"><h3>📋 What\'s left here</h3></div>' + leftSummary(id, true);
+    var h = '<section class="card left-card"><div class="card-title"><h3>What\'s left here</h3></div>' + leftSummary(id, true);
     h += '<ol class="steps">' + main.slice(0, 6).map(step).join('') + '</ol>';
     if (main.length > 6) h += '<details class="obj-how"><summary>' + (main.length - 6) + ' more main items</summary><ol class="steps">' + main.slice(6).map(step).join('') + '</ol></details>';
     if (locked.length) h += '<details class="obj-how"' + '' + '><summary>🔒 ' + locked.length + ' waiting on something else</summary><ol class="steps">' + locked.map(step).join('') + '</ol></details>';
@@ -433,18 +452,18 @@
     if (g.nail && !g.nail.ok) bits.push('Nail ' + g.nail.need + ' (you: ' + g.nail.have + ')');
     if (g.masks && !g.masks.ok) bits.push(g.masks.need + ' Masks (you: ' + g.masks.have + ')');
     g.items.forEach(function (x) { if (!x.ok) bits.push(x.name); });
-    return '<p class="small gold">⚠ Recommended before this: ' + bits.map(esc).join(' · ') + '</p>';
+    return '<p class="small gold">Better with: ' + bits.map(esc).join(' · ') + '</p>';
   }
   views.regions = function () {
-    var h = '<header class="page-head"><h1>Regions</h1><p class="lead">✓ COMPLETE · → CURRENT · ○ FUTURE — optional items never block a region.</p></header>' + regionSelect();
+    var h = '<header class="page-head"><h1>Regions</h1><p class="lead">Optional items never block a region.</p></header>' + regionSelect();
     h += '<div class="region-grid">' + DATA.REGIONS.map(function (r) {
       var p = E.regionProgress(r.id), status = E.regionStatus(r.id);
       var goal = E.regionItems(r.id).filter(function (i) { return !i.derived && !i.optional && !i.beyond && !E.isDone(i.id) && !(i.voidHeart && E.isVoidHeartLocked()); })
         .sort(function (a, b) { return (b.goal ? 1 : 0) - (a.goal ? 1 : 0) || (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0); })[0];
       return '<a class="region-card theme-' + r.theme + ' st-' + status + '" href="#/region/' + r.id + '">' +
-        '<div class="rc-top"><span class="rc-status">' + (status === 'complete' ? '✓ COMPLETE' : status === 'current' ? '→ CURRENT' : '○ FUTURE') + '</span>' + (p.accessible ? '' : '<span class="badge muted">access needed</span>') + '</div>' +
+        '<div class="rc-top"><span class="rc-status">' + (status === 'complete' ? 'Done' : status === 'current' ? 'You are here' : status === 'next' ? 'Next up' : '') + '</span>' + (p.accessible ? '' : '<span class="rc-lock">needs access</span>') + '</div>' +
         '<h3>' + esc(r.name) + '</h3>' + diffBadge((DATA.REGION_GUIDE[r.id] || {}).diff) + '<div class="bar"><span style="width:' + p.pct + '%"></span></div>' +
-        '<div class="rc-meta">' + p.mainDone + '/' + p.main + ' main · ' + p.allDone + '/' + p.all + ' total' + (function () { var G = E.regionGeo(r.id); return G.remaining ? ' · 💰 ' + fmt(G.remaining) : ''; })() + '</div>' +
+        '<div class="rc-meta">' + p.mainDone + '/' + p.main + ' main · ' + p.allDone + '/' + p.all + ' total' + (function () { var G = E.regionGeo(r.id); return G.remaining ? ' · ' + fmt(G.remaining) + ' Geo' : ''; })() + '</div>' +
         (goal ? '<div class="rc-goal">Next: ' + esc(goal.name) + '</div>' : '<div class="rc-goal pos">Main route done</div>') + '</a>';
     }).join('') + '</div>';
     return h;
@@ -471,11 +490,11 @@
     document.body.setAttribute('data-theme', r.theme);
     var p = E.regionProgress(id), status = E.regionStatus(id), items = E.regionItems(id);
     var h = '<header class="page-head region-head theme-' + r.theme + '">' + '<div class="rh-art">' + regionArt(r, 1000, 220) + '</div>' + '<a href="#/regions" class="back">← Regions</a><h1>' + esc(r.name) + '</h1>' +
-      '<div class="bar big"><span style="width:' + p.pct + '%"></span></div><p class="muted">' + (status === 'complete' ? '✓ Complete · ' : status === 'current' ? 'Current · ' : '') + p.mainDone + '/' + p.main + ' main route · ' + p.allDone + '/' + p.all + ' everything</p>' +
+      '<div class="bar big"><span style="width:' + p.pct + '%"></span></div><p class="muted">' + (status === 'complete' ? 'Done · ' : status === 'current' ? 'You are here · ' : status === 'next' ? 'Next up · ' : '') + p.mainDone + '/' + p.main + ' main route · ' + p.allDone + '/' + p.all + ' everything</p>' +
       '<p class="access small">' + esc(r.access) + '</p>';
     var acc = E.missingRegionAccess(id);
     if (acc.length) h += '<div class="banner warn compact">Access requirements not recorded: ' + missingHtml(acc) + '</div>';
-    if (st().currentRegion !== id) h += '<button class="btn small" data-action="set-region" data-id="' + id + '">📍 I am here</button>';
+    if (st().currentRegion !== id) h += '<button class="btn small" data-action="set-region" data-id="' + id + '">I am here</button>';
     h += '</header>';
     h += readinessCard(id);
     h += leftCard(id);
@@ -626,7 +645,7 @@
   trackers.geo = function () {
     var s = st(), exp = E.upcomingExpenses();
     var mandatory = exp.filter(function (i) { return !i.optional; }), total = mandatory.reduce(function (a, i) { return a + i.cost.geo; }, 0);
-    var h = '<section class="card"><h3>💰 Geo</h3>' + resourceEditors() +
+    var h = '<section class="card"><h3>Geo</h3>' + resourceEditors() +
       '<p>Remaining Geo needed for non-optional purchases: <b>' + fmt(total) + '</b> <span class="muted">(you have ' + fmt(s.resources.geo) + (total > s.resources.geo ? ', missing ' + fmt(total - s.resources.geo) : '') + ')</span></p>' + nailStatusLine() + '</section>';
     h += '<section class="card"><h3>Next expenses</h3><div class="table-wrap"><table class="tbl"><thead><tr><th>Item</th><th>Where</th><th>Geo</th><th>Status</th></tr></thead><tbody>' +
       exp.map(function (i) {
@@ -693,9 +712,9 @@
       '<div class="mc-title"><b>' + esc(it.name) + '</b> <span class="notch" title="' + it.notches + ' notch(es)">' + '◆'.repeat(it.notches || 0) + '</span>' +
       '<span class="muted small"> · <a href="#/region/' + it.region + '">' + esc(regionName(it.region)) + '</a>' + (cost ? ' · ' + fmt(cost) + ' Geo' + (s.resources.geo >= cost ? ' <span class="pos">(you can afford it)</span>' : ' <span class="neg">(you have ' + fmt(s.resources.geo) + ')</span>') : '') + '</span></div></div>';
     h += '<dl class="facts' + (s.settings.spoilers ? ' spoiler' : '') + '">';
-    h += '<dt>📍</dt><dd class="sp">' + esc(it.loc || '—') + '</dd>';
-    if (it.how) h += '<dt>🧭</dt><dd class="sp">' + esc(it.how) + (it.tip ? '<br><em>Tip: ' + esc(it.tip) + '</em>' : '') + '</dd>';
-    if (it.fn) h += '<dt>🎯</dt><dd>' + esc(it.fn) + '</dd>';
+    h += '<dt>Where</dt><dd class="sp">' + esc(it.loc || '—') + '</dd>';
+    if (it.how) h += '<dt>How</dt><dd class="sp">' + esc(it.how) + (it.tip ? '<br><em>Tip: ' + esc(it.tip) + '</em>' : '') + '</dd>';
+    if (it.fn) h += '<dt>Function</dt><dd>' + esc(it.fn) + '</dd>';
     h += '</dl>';
     if (miss.length) h += '<div class="mc-need"><span class="small muted">Needs first:</span>' + missingHtml(miss) + '</div>';
     if (soft.length) h += '<div class="mc-need">' + soft.map(function (x) { return '<span class="soft no">needs ' + esc(x.label) + (x.key !== 'keys' && x.key !== 'charms' ? ' (you have ' + fmt(x.have) + ')' : '') + '</span>'; }).join(' ') + '</div>';
@@ -838,7 +857,7 @@
     h += '<p class="muted small">Suggested order follows the roadmap stage, then price. Spend on what unlocks progress first. Geo you lose on death stays in your Shade — see Missables.</p>';
     h += '<p><a class="btn small" href="#/plan/farm">Need Geo? See farm routes →</a></p></section>';
     h += '<section class="card"><h3>✅ Can buy now <span class="muted">(' + now.length + ')</span></h3>' + (now.length ? now.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">Nothing you can afford and reach right now.</p>') + '</section>';
-    h += '<section class="card"><h3>💰 Saving for <span class="muted">(' + saving.length + ')</span></h3>' + (saving.length ? saving.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">Nothing left to save for among what you can reach.</p>') + '</section>';
+    h += '<section class="card"><h3>Saving for <span class="muted">(' + saving.length + ')</span></h3>' + (saving.length ? saving.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">Nothing left to save for among what you can reach.</p>') + '</section>';
     h += '<section class="card"><h3>🔒 Not reachable yet <span class="muted">(' + locked.length + ')</span></h3>' + (locked.length ? locked.map(function (i) { return buyRow(i, geo); }).join('') : '<p class="muted small">—</p>') + '</section>';
     if (opt.length) h += '<details class="card group"><summary><h3>Optional purchases</h3><span class="muted small">' + opt.length + '</span></summary>' + opt.map(function (i) { return buyRow(i, geo); }).join('') + '</details>';
     return h;
@@ -856,7 +875,7 @@
     sorted.forEach(function (f) {
       var good = fit.indexOf(f.phase) >= 0;
       h += '<section class="card farm' + (good ? ' suggested' : '') + '"><div class="card-title"><h3>' + esc(f.name) + '</h3><span class="badge' + (good ? ' ok' : ' muted') + '">' + (good ? 'good for now' : f.phase) + '</span></div>' +
-        '<dl class="facts"><dt>📍 Where</dt><dd>' + esc(f.where) + '</dd><dt>🔑 Needs</dt><dd>' + esc(f.req) + '</dd><dt>⚔ Difficulty</dt><dd>' + esc(f.difficulty) + '</dd><dt>💰 Return</dt><dd>' + esc(f.ret) + '</dd><dt>🪑 Bench</dt><dd>' + esc(f.bench) + '</dd></dl>' +
+        '<dl class="facts"><dt>Where</dt><dd>' + esc(f.where) + '</dd><dt>Needs</dt><dd>' + esc(f.req) + '</dd><dt>Difficulty</dt><dd>' + esc(f.difficulty) + '</dd><dt>Return</dt><dd>' + esc(f.ret) + '</dd><dt>Bench</dt><dd>' + esc(f.bench) + '</dd></dl>' +
         '<a class="small" href="' + f.wiki + '" target="_blank" rel="noopener">Wiki ↗</a></section>';
     });
     return h + '<p class="muted small">Returns marked “verified” come from the wiki; others are qualitative — Geo per enemy varies.</p>';
@@ -985,7 +1004,7 @@
       var done = E.isDone(i.id), miss = E.missing(i).length;
       return '<details class="card group boss-g' + (done ? ' done' : '') + '"><summary><h3>' + esc(i.name) + '</h3><span class="muted small">' + esc(shortRegion(i.region)) + ' · ' + (done ? '✓ beaten' : miss ? 'locked' : 'available') + '</span></summary>' +
         '<div class="item-actions"><label class="chk-line"><input type="checkbox" class="chk" data-action="toggle" data-id="' + i.id + '"' + (done ? ' checked' : '') + '> Defeated</label></div>' +
-        '<dl class="facts' + (st().settings.spoilers && !done ? ' spoiler' : '') + '"><dt>📍</dt><dd class="sp">' + esc(i.loc || '—') + '</dd>' + (i.reward ? '<dt>🎁</dt><dd>' + esc(i.reward) + '</dd>' : '') + '</dl>' + bossGuideHtml(i.id) + '</details>';
+        '<dl class="facts' + (st().settings.spoilers && !done ? ' spoiler' : '') + '"><dt>Where</dt><dd class="sp">' + esc(i.loc || '—') + '</dd>' + (i.reward ? '<dt>Reward</dt><dd>' + esc(i.reward) + '</dd>' : '') + '</dl>' + bossGuideHtml(i.id) + '</details>';
     }).join('') || '<p class="muted">Nothing left — every boss in the guide is beaten! 🎉</p>';
     return h;
   };
@@ -1259,7 +1278,7 @@
     var regs = DATA.REGIONS.filter(function (r) { return r.name.toLowerCase().indexOf(q) >= 0; }).slice(0, 4);
     var items = DATA.ITEMS.filter(function (i) { return matchQuery(i, q); })
       .sort(function (a, b) { return (a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) - (b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) || a.name.length - b.name.length; }).slice(0, 12);
-    var h = regs.map(function (r) { return '<a class="sr" role="option" href="#/region/' + r.id + '">📍 <b>' + esc(r.name) + '</b><small>Region</small></a>'; }).join('');
+    var h = regs.map(function (r) { return '<a class="sr" role="option" href="#/region/' + r.id + '"><b>' + esc(r.name) + '</b><small>Region</small></a>'; }).join('');
     h += items.map(function (i) { return '<button class="sr" role="option" data-action="open-item" data-id="' + i.id + '">' + (E.isDone(i.id) ? '✓' : '○') + ' <b>' + esc(i.name) + '</b><small>' + esc(TYPE_LABEL[i.type]) + ' · ' + esc(regionName(i.region)) + '</small></button>'; }).join('');
     searchBox.innerHTML = h || '<div class="sr muted">No results</div>';
     searchBox.hidden = false;
@@ -1270,7 +1289,14 @@
     if (e.key === 'Enter') { var f = searchBox.querySelector('.sr[data-action], a.sr'); if (f) f.click(); }
     if (e.key === 'ArrowDown') { var g = searchBox.querySelector('.sr'); if (g) { e.preventDefault(); g.focus(); } }
   });
-  document.addEventListener('click', function (e) { if (!e.target.closest('.search-wrap')) searchBox.hidden = true; });
+  document.addEventListener('click', function (e) { if (!e.target.closest('.search-wrap')) searchBox.hidden = true; if (!e.target.closest('.region-menu')) closeRegionMenus(); });
+  document.addEventListener('keydown', function (e) {
+    var open = document.querySelector('.rm-list:not([hidden])'); if (!open) return;
+    var opts = Array.prototype.slice.call(open.querySelectorAll('.rm-opt')), i = opts.indexOf(document.activeElement);
+    if (e.key === 'Escape') { var btn = open.parentNode.querySelector('.region-pill'); closeRegionMenus(); btn.focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); opts[Math.min(opts.length - 1, i + 1)].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); opts[Math.max(0, i - 1)].focus(); }
+  });
   searchBox.addEventListener('click', function () { setTimeout(function () { searchBox.hidden = true; searchInput.value = ''; }, 0); });
 
   /* ============================== ROUTER ============================== */
@@ -1312,6 +1338,13 @@
     var a = t.getAttribute('data-action'), id = t.getAttribute('data-id');
     if (t.tagName === 'INPUT' && (t.type === 'checkbox' || t.type === 'number' || t.type === 'file')) return; // handled on change
     switch (a) {
+      case 'region-toggle': {
+        var list = t.parentNode.querySelector('.rm-list'), open = list.hidden;
+        closeRegionMenus(); list.hidden = !open; t.setAttribute('aria-expanded', String(open));
+        if (open) { var on = list.querySelector('.rm-opt.on') || list.querySelector('.rm-opt'); if (on) { on.focus(); on.scrollIntoView({ block: 'nearest' }); } }
+        return;
+      }
+      case 'region-pick': closeRegionMenus(); store.setRegion(id); break;
       case 'toggle': {
         var was = E.isDone(id), it = byId[id];
         if (!was && it.voidHeart && E.isVoidHeartLocked() && !confirm('🔒 VOID HEART — NÃO PEGUE AINDA\n\nYou have not recorded the ending “The Hollow Knight”. Mark the Void Heart anyway?')) return;
@@ -1339,7 +1372,7 @@
         else { store.profiles.remove(id); toast('Profile deleted'); }
         break;
       case 'map-layer': mapLayer = id; render(true); break;
-      case 'set-region': store.setRegion(id); toast('📍 ' + regionName(id)); break;
+      case 'set-region': store.setRegion(id); toast(regionName(id)); break;
       case 'mark-prereqs': {
         var map = {}; E.missing(byId[id], { noRegion: true }).forEach(function (g) { if (g.mode === 'all') g.ids.forEach(function (x) { map[x] = true; }); });
         store.setChecks(map, 'prereqs'); break;

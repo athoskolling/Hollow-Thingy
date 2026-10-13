@@ -255,3 +255,6 @@ Limites: o site não sabe a *sua* posição no mapa além da região atual que v
 - **Requisitos mínimos** = portões do jogo + habilidades que a própria base de dados exige para os objetivos principais da região (testado: o mínimo sempre cobre o portão de entrada). **Recomendados** = Nail, máscaras e itens (ex.: Lumafly Lantern). Nunca bloqueiam nada; só reordenam o roadmap (ex.: o final "The Hollow Knight" espera Nail 3 e 7 máscaras).
 - **"O que falta aqui"** (página da região e Dashboard): Geo restante (rota principal e com opcionais, e quanto falta para você), Pale Ore e Essence necessários, quantos itens de cada tipo e a lista na ordem da rota com o "como pegar" de cada um.
 - Testes: 38 unitários, 126 checagens e2e.
+
+## Revisão visual (13/10/2026)
+Menos caixas (os 4 números viraram uma faixa), rótulos em minúsculas e sem emoji, status de região sem repetição ("You are here" só na região em que você está, "Next up" na do próximo objetivo), chips do roadmap neutros, e o seletor de região virou um menu próprio (teclado: setas/Esc; no celular abre como painel inferior).

@@ -58,7 +58,7 @@ with sync_playwright() as p:
     check('next objective moved on after marking done', nxt != first_name, nxt)
 
     # --- region selector influences "while you're here"
-    page.select_option('select[data-action=region]', 'royal-waterways'); page.wait_for_timeout(200)
+    page.click('[data-action=region-toggle]'); page.wait_for_timeout(100); page.click('.rm-opt[data-id=royal-waterways]'); page.wait_for_timeout(250)
     check('current region stored', js(page, "HKApp.store.get().currentRegion") == 'royal-waterways')
 
     # --- Save editor single-source sync

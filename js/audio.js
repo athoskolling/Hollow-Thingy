@@ -53,7 +53,7 @@
       '<div class="pl-sdk"><button class="btn small pl-toggle" data-music="toggle" aria-label="Play or pause">' + I.svg('play') + '</button>' +
         '<input class="pl-vol" type="range" min="0" max="1" step="0.05" aria-label="Volume"><span class="pl-sdk-msg muted small">Full track · your Spotify account</span></div>' +
       '<div class="pl-embed"><div id="spotifyEmbed"></div><a class="pl-fallback" target="_blank" rel="noopener"></a></div>' +
-      '<button class="pl-connect link-btn small" data-music="connect-go">♫ Connect Spotify for full tracks →</button>';
+      '<button class="pl-connect link-btn small" data-music="connect-go">Connect Spotify for full tracks</button>';
     var titleEl = mount.querySelector('.pl-title'), subEl = mount.querySelector('.pl-sub'), fb = mount.querySelector('.pl-fallback');
 
     /* ---------- optional: connected Spotify account (Web Playback SDK, PKCE) ---------- */

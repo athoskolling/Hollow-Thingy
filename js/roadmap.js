@@ -158,7 +158,8 @@
       var p = regionProgress(regionId);
       if (p.complete) return 'complete';
       var nxt = nextObjective();
-      if (regionId === S().currentRegion || (nxt && nxt.item.region === regionId)) return 'current';
+      if (regionId === S().currentRegion) return 'current';
+      if (nxt && nxt.item.region === regionId) return 'next';
       return 'future';
     }
 
