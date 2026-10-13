@@ -33,8 +33,19 @@
     return (cache[id] = d + 'Z');
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  /** Row of small coloured counters under the badge: one per kind of item still missing (region level, no coordinates). */
+  function pins(n, list) {
+    if (!list || !list.length) return '';
+    var gap = 26, x0 = n[0] - (list.length - 1) * gap / 2, y = n[1] + 42, s = '';
+    list.forEach(function (p, i) {
+      var x = x0 + i * gap;
+      s += '<g class="atl-pin"><title>' + esc(p.t || '') + '</title><circle cx="' + x + '" cy="' + y + '" r="11" style="fill:' + p.c + '"/>' +
+        '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" class="atl-pin-n">' + esc(p.n) + '</text></g>';
+    });
+    return s;
+  }
   /**
-   * m[id] = { name, short, color, level (0..1 fill strength), badge (text), sub (text), state: 'complete'|'locked'|'' }
+   * m[id] = { pins: [{c colour, n count, t tooltip}], name, short, color, level (0..1 fill strength), badge (text), sub (text), state: 'complete'|'locked'|'' }
    */
   function svg(m, selected) {
     var s = '<svg class="atlas-svg" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Schematic map of Hallownest">' +
@@ -50,7 +61,7 @@
         '<path d="' + blob(id) + '" class="atl-glow" style="fill:' + x.color + ';opacity:' + (0.15 + x.level * 0.5).toFixed(2) + '" filter="url(#atl-glow)"/>' +
         '<path d="' + blob(id) + '" class="atl-shape" style="fill:' + x.color + ';fill-opacity:' + (0.07 + x.level * 0.5).toFixed(2) + '"/>' +
         '<text x="' + n[0] + '" y="' + (n[1] - 4) + '" class="atl-name" text-anchor="middle">' + esc(x.short) + '</text>' +
-        '<text x="' + n[0] + '" y="' + (n[1] + 20) + '" class="atl-badge" text-anchor="middle">' + esc(x.badge) + '</text></a>';
+        '<text x="' + n[0] + '" y="' + (n[1] + 20) + '" class="atl-badge" text-anchor="middle">' + esc(x.badge) + '</text>' + pins(n, x.pins) + '</a>';
     });
     return s + '</svg>';
   }

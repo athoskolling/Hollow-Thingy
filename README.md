@@ -261,4 +261,10 @@ Menos caixas (os 4 números viraram uma faixa), rótulos em minúsculas e sem em
 
 ## Save no PC (leitura automática do user#.dat)
 My Save → "Save on this PC". **Edge/Chrome:** escolha a pasta do save uma vez (Windows: `%USERPROFILE%\AppData\LocalLow\Team Cherry\Hollow Knight\`); o navegador lembra a pasta e, enquanto a aba estiver aberta, o site confere a cada ~20 s se o `user#.dat` ficou mais novo que o último import. Se houver diferenças aparece um aviso no Dashboard ("Review changes") com a mesma prévia/confirmação do import — nada muda sem você aplicar. Depois de reabrir o navegador ele pede um clique ("Check my save"). **Firefox/Safari/celular:** não existe API para lembrar pastas, então você escolhe a pasta a cada visita e o site compara. Os arquivos só são lidos, nunca enviados. Também há o relatório "What's left in the whole game".
-Testes: 39 unitários, 134 checagens e2e.
+Testes: 39 unitários, 141 checagens e2e.
+
+## Mapa: o que falta + MapGenie
+
+- **Camada "Missing"** no Map: contadores coloridos por tipo (skills, bosses, charms, máscaras…) em cada região, calculados do seu progresso. É por região, sem coordenadas inventadas. Ao selecionar uma região, o detalhe lista o que falta por tipo e os próximos itens disponíveis.
+- **MapGenie**: botão "Open in MapGenie" na página do mapa, em cada região e no Dashboard. Abre o mapa deles em outra aba. Não copiamos tiles nem marcadores. Não foi possível confirmar se o MapGenie aceita deep link por região, então o link vai para o mapa geral.
+- **Iframe opcional** ("Try it here"): só carrega ao clicar, com `sandbox` e sem referrer. Se o MapGenie bloquear embeds, o painel fica em branco e o texto abaixo manda usar o link. Os pins marcados lá não se ligam ao seu progresso aqui.

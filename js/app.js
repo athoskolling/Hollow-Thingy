@@ -10,7 +10,7 @@
   var byId = E.byId;
   var view = document.getElementById('view');
   var expanded = {};             // expanded item rows (UI only)
-  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false };
+  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false, mgFrame: false };
   var music = null;               // region soundtrack player (audio.js)
   var sync = null;                // optional sync between devices (sync.js — Gist, legacy)
   var cloud = null;               // optional account login + live cloud sync (cloud.js — Firebase)
@@ -317,7 +317,7 @@
       regionMenu(cur) + '</div>' +
       leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <a class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '" href="#/region/' + cur + '">' + ({ blocked: 'missing a minimum', under: 'under-prepared', almost: 'almost ready', ready: 'ready' })[R.level] + ' →</a></p>' : ''; })() +
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
-      '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a></section>';
+      '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a> <a class="link-more" href="' + MG_URL + '" target="_blank" rel="noopener noreferrer">MapGenie ↗</a></section>';
     var up = routeList(4);
     h += '<section class="card"><div class="card-title"><h3>' + ico('route') + ' Up next</h3><a class="link-more" href="#/roadmap">Roadmap →</a></div>' +
       (up.length ? '<ol class="upnext">' + up.map(function (g, i) { return '<li' + (i === 0 ? ' class="now"' : '') + '><button data-action="open-item" data-id="' + g.id + '"><b>' + esc(g.name) + '</b><small>' + esc(shortRegion(g.region)) + '</small></button></li>'; }).join('') + '</ol>' : '<p class="muted">The main route is complete.</p>') + '</section>';
@@ -494,7 +494,7 @@
       '<p class="access small">' + esc(r.access) + '</p>';
     var acc = E.missingRegionAccess(id);
     if (acc.length) h += '<div class="banner warn compact">Access requirements not recorded: ' + missingHtml(acc) + '</div>';
-    if (st().currentRegion !== id) h += '<button class="btn small" data-action="set-region" data-id="' + id + '">I am here</button>';
+    h += '<div class="btn-row">' + (st().currentRegion !== id ? '<button class="btn small" data-action="set-region" data-id="' + id + '">I am here</button>' : '') + mgLink(id) + '</div>';
     h += '</header>';
     h += readinessCard(id);
     h += leftCard(id);
@@ -1043,7 +1043,14 @@
   }
 
   /* ------------------------------ map (schematic atlas) ------------------------------ */
-  var MAP_LAYERS = [['progress', 'Progress'], ['items', 'Items left'], ['charms', 'Charms left'], ['bosses', 'Bosses left'], ['stag', 'Stag Stations'], ['bench', 'Benches']];
+  var MG_URL = 'https://mapgenie.io/hollow-knight/maps/hallownest';
+  var KIND_COLOR = { 'Skills & spells': '#9fd2ff', 'Bosses & fights': '#f08a8a', 'Dreamers & endings': '#d79bff', 'Charms & notches': '#8fe0b4', 'Mask shards': '#e6e1d3', 'Vessel fragments': '#7fd6c5',
+    'Pale Ore': '#b9c3d6', 'Keys & access': '#e7c97a', 'Grimm Troupe': '#ff8a5c', 'Whispering Roots': '#c9a0ff', 'Godhome': '#ffd97a', 'Other': '#9aa3b5' };
+  function mgLink(regionId, label) {
+    var n = regionId && E.regionById[regionId] ? shortRegion(regionId) : '';
+    return '<a class="btn small ghost" href="' + MG_URL + '" target="_blank" rel="noopener noreferrer"' + (n ? ' title="Opens the full map in a new tab — look for ' + esc(n) + ' there"' : '') + '>' + (label || 'Open in MapGenie') + ' ↗</a>';
+  }
+  var MAP_LAYERS = [['progress', 'Progress'], ['left', 'Missing'], ['items', 'Items left'], ['charms', 'Charms left'], ['bosses', 'Bosses left'], ['stag', 'Stag Stations'], ['bench', 'Benches']];
   function poiCount(region, type) { return (HK.POI ? HK.POI.LIST : []).filter(function (p) { return p.region === region && p.type === type; }).length; }
   function regionStats(r) {
     var p = E.regionProgress(r.id), items = DATA.ITEMS.filter(function (i) { return i.region === r.id && !i.derived && !i.beyond; });
@@ -1057,7 +1064,7 @@
     var stats = {}, maxv = 1, vals = {};
     DATA.REGIONS.forEach(function (r) {
       var x = regionStats(r); stats[r.id] = x;
-      vals[r.id] = mapLayer === 'items' ? x.itemsLeft : mapLayer === 'charms' ? x.charmLeft : mapLayer === 'bosses' ? x.bossLeft : mapLayer === 'stag' ? x.stag : mapLayer === 'bench' ? x.bench : x.p.pct;
+      vals[r.id] = mapLayer === 'left' ? E.regionPlan(r.id).main : mapLayer === 'items' ? x.itemsLeft : mapLayer === 'charms' ? x.charmLeft : mapLayer === 'bosses' ? x.bossLeft : mapLayer === 'stag' ? x.stag : mapLayer === 'bench' ? x.bench : x.p.pct;
       if (mapLayer !== 'progress' && vals[r.id] > maxv) maxv = vals[r.id];
     });
     var m = {};
@@ -1067,22 +1074,34 @@
         level: mapLayer === 'progress' ? v / 100 : v / maxv,
         badge: mapLayer === 'progress' ? v + '%' : String(v), state: x.p.complete && mapLayer === 'progress' ? 'complete' : !x.p.accessible ? 'locked' : '',
         sub: x.p.mainDone + '/' + x.p.main + ' main items · ' + v + (mapLayer === 'progress' ? '%' : '') };
+      if (mapLayer === 'left') m[r.id].pins = E.regionPlan(r.id).kinds.filter(function (k) { return k.main; }).slice(0, 4).map(function (k) { return { c: KIND_COLOR[k.name] || '#9aa3b5', n: k.main, t: k.main + ' ' + k.name.toLowerCase() }; });
     });
     var h = '<header class="page-head"><h1>Map</h1><p class="lead">A schematic of Hallownest — regions roughly where they sit, not to scale. Pick a region to see its progress.</p></header>';
     h += '<div class="tabs atlas-layers" role="tablist">' + MAP_LAYERS.map(function (l) { return '<button role="tab" class="tab' + (l[0] === mapLayer ? ' on' : '') + '" data-action="map-layer" data-id="' + l[0] + '">' + l[1] + '</button>'; }).join('') + '</div>';
     h += '<section class="card atlas">' + HK.Atlas.svg(m, sel) +
       '<p class="muted small atlas-legend">Brighter = ' + (mapLayer === 'progress' ? 'more complete' : 'more') + ' · dashed outline = not accessible yet · ✓ = region finished. Original diagram, not the official map.</p></section>';
+    if (mapLayer === 'left') h += '<div class="kind-legend">' + Object.keys(KIND_COLOR).filter(function (k) { return k !== 'Other'; }).map(function (k) { return '<span><i style="background:' + KIND_COLOR[k] + '"></i>' + esc(k) + '</span>'; }).join('') + '</div>';
     if (sel) {
-      var r = E.regionById[sel], x = stats[sel];
+      var r = E.regionById[sel], x = stats[sel], P = E.regionPlan(sel);
       h += '<section class="card atlas-detail"><div class="card-title"><h3>' + ico('pin') + ' ' + esc(r.name) + '</h3><a class="btn small" href="#/region/' + sel + '">Open region →</a></div>' +
         bar(x.p.pct) + '<p class="muted small">' + x.p.mainDone + '/' + x.p.main + ' main items · ' + x.p.allDone + '/' + x.p.all + ' including optional</p>' +
-        '<p>' + esc(r.access || '') + '</p>' +
-        '<div class="atlas-facts"><span class="soft">Bosses left <b>' + x.bossLeft + '/' + x.bossTotal + '</b></span><span class="soft">Charms left <b>' + x.charmLeft + '/' + x.charmTotal + '</b></span>' +
+        '<p>' + esc(r.access || '') + '</p>' + leftSummary(sel);
+      if (P.left) {
+        h += '<div class="kind-rows">' + P.kinds.map(function (k) { return '<div><i style="background:' + (KIND_COLOR[k.name] || '#9aa3b5') + '"></i><span>' + esc(k.name) + '</span>' + (k.main ? '<b>' + k.main + '</b>' : '') + (k.total > k.main ? '<small class="muted">' + (k.main ? '+' : '') + (k.total - k.main) + ' optional</small>' : '') + '</div>'; }).join('') + '</div>';
+        var todo = E.whileHere(sel, null).filter(function (i) { return !i.optional; }).slice(0, 8);
+        if (todo.length) h += '<div class="rp-list">' + todo.map(function (i) { return rrow(i, { sub: TYPE_LABEL[i.type] || i.type }); }).join('') + '</div>';
+      }
+      h += '<div class="atlas-facts"><span class="soft">Bosses left <b>' + x.bossLeft + '/' + x.bossTotal + '</b></span><span class="soft">Charms left <b>' + x.charmLeft + '/' + x.charmTotal + '</b></span>' +
         '<span class="soft">Stag Stations <b>' + x.stag + '</b></span><span class="soft">Benches <b>' + x.bench + '</b></span></div>' +
-        '<div class="btn-row"><button class="btn small" data-action="set-region" data-id="' + sel + '">I am in ' + esc(shortRegion(sel)) + '</button></div></section>';
+        '<div class="btn-row"><button class="btn small" data-action="set-region" data-id="' + sel + '">I am in ' + esc(shortRegion(sel)) + '</button>' + mgLink(sel) + '</div></section>';
     }
-    h += '<section class="card"><h3>' + ico('map') + ' Want the full in-game map?</h3><p class="muted small">This page is a simple diagram built for tracking. For the detailed official-style map with every pin, use a community interactive map:</p>' +
-      '<div class="btn-row"><a class="btn small" href="https://mapgenie.io/hollow-knight/maps/hallownest" target="_blank" rel="noopener">Map Genie — interactive Hallownest map ↗</a></div></section>';
+    h += '<section class="card mg-card"><div class="card-title"><h3>' + ico('map') + ' Full in-game map</h3><div class="btn-row">' + mgLink(sel) +
+      '<button class="btn small" data-action="mg-frame" aria-expanded="' + (ui.mgFrame ? 'true' : 'false') + '">' + (ui.mgFrame ? 'Hide embedded map' : 'Try it here') + '</button></div></div>' +
+      '<p class="muted small">This page is a simple diagram for tracking. The community map on MapGenie has every pin. It belongs to them, so we link to it instead of copying it. ' +
+      'Nothing here is sent to them until you open it.</p>';
+    if (ui.mgFrame) h += '<div class="mg-frame"><iframe src="' + MG_URL + '" title="MapGenie — Hallownest" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>' +
+      '<p class="muted small">Blank or an error? MapGenie may not allow other sites to embed it, which I can’t detect from here. Use “Open in MapGenie” instead. Pins ticked there are not linked to your progress here.</p></div>';
+    h += '</section>';
     return h;
   };
 
@@ -1495,6 +1514,7 @@
         else { store.profiles.remove(id); toast('Profile deleted'); }
         break;
       case 'map-layer': mapLayer = id; render(true); break;
+      case 'mg-frame': ui.mgFrame = !ui.mgFrame; render(true); break;
       case 'set-region': store.setRegion(id); toast(regionName(id)); break;
       case 'mark-prereqs': {
         var map = {}; E.missing(byId[id], { noRegion: true }).forEach(function (g) { if (g.mode === 'all') g.ids.forEach(function (x) { map[x] = true; }); });
