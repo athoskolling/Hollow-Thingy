@@ -261,4 +261,4 @@ Menos caixas (os 4 números viraram uma faixa), rótulos em minúsculas e sem em
 
 ## Save no PC (leitura automática do user#.dat)
 My Save → "Save on this PC". **Edge/Chrome:** escolha a pasta do save uma vez (Windows: `%USERPROFILE%\AppData\LocalLow\Team Cherry\Hollow Knight\`); o navegador lembra a pasta e, enquanto a aba estiver aberta, o site confere a cada ~20 s se o `user#.dat` ficou mais novo que o último import. Se houver diferenças aparece um aviso no Dashboard ("Review changes") com a mesma prévia/confirmação do import — nada muda sem você aplicar. Depois de reabrir o navegador ele pede um clique ("Check my save"). **Firefox/Safari/celular:** não existe API para lembrar pastas, então você escolhe a pasta a cada visita e o site compara. Os arquivos só são lidos, nunca enviados. Também há o relatório "What's left in the whole game".
-Testes: 39 unitários, 132 checagens e2e.
+Testes: 39 unitários, 134 checagens e2e.

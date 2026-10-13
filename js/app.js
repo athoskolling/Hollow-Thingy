@@ -283,7 +283,7 @@
     // alerts (only when relevant)
     h += voidHeartBanner(true);
     if (E.isDone('black-egg')) h += '<div class="banner gold compact"><strong>🔓 BLACK EGG OPEN</strong>' + (E.isDone('ending-thk') ? '<span>All three Dreamers are sealed away.</span>' : '<span>⚠️ FAÇA O FINAL BÁSICO ANTES DO VOID HEART.</span>') + '</div>';
-    h += noticeBox() + swBanner();
+    h += noticeBox() + swBanner() + cloudBanner();
     h += (function () { var n0 = E.nextObjective(); return missableAlert(n0 ? [n0.item.id].concat(E.whileHere(st().currentRegion, n0.item.id, 6).map(function (x) { return x.id; })) : []); })();
     // the one thing to do now
     h += '<section class="card objective" id="objective">';
@@ -1122,8 +1122,9 @@
       h += '<p>Almost there — type the e-mail you used to request the link:</p><div class="sync-form"><input id="cloudEmail2" type="email" autocomplete="email" placeholder="you@example.com" aria-label="E-mail"><button class="btn btn-primary" data-action="cloud-email-done">Finish sign-in</button></div>' + pill;
     } else {
       h += '<p>Sign in to see the <b>same progress on your computer, phone and notebook</b>, updating live. First time on a device? Your local progress is merged safely — it never wipes what’s in your account.</p>' + pill +
-        '<div class="btn-row"><button class="btn btn-primary" data-action="cloud-in" data-id="google">Continue with Google</button><button class="btn" data-action="cloud-in" data-id="github">Continue with GitHub</button></div>' +
-        '<div class="sync-form"><input id="cloudEmail" type="email" autocomplete="email" placeholder="or type your e-mail for a sign-in link" aria-label="E-mail for sign-in link"><button class="btn" data-action="cloud-email">Send link</button></div>' +
+        '<div class="btn-row"><button class="btn btn-primary" data-action="cloud-in" data-id="google">Continue with Google</button></div>' +
+        '<details class="obj-how"><summary>Other ways to sign in</summary><div class="btn-row"><button class="btn" data-action="cloud-in" data-id="github">Continue with GitHub</button></div>' +
+        '<div class="sync-form"><input id="cloudEmail" type="email" autocomplete="email" placeholder="or type your e-mail for a sign-in link" aria-label="E-mail for sign-in link"><button class="btn" data-action="cloud-email">Send link</button></div></details>' +
         '<p class="muted small">No password to remember. ' + (localStorage.getItem('hk-companion-firebase') ? '<button class="link-btn" data-action="cloud-clearcfg">Remove saved Firebase config</button>' : '') + '</p>';
     }
     return h + '</section>';
@@ -1362,6 +1363,11 @@
     }
     return h + '</section>';
   }
+  function cloudBanner() {
+    var dismissed = false; try { dismissed = localStorage.getItem('hk-companion-cloud-banner') === '1'; } catch (e) { /* private mode */ }
+    if (!cloud || !cloud.configured() || cloud.user() || dismissed) return '';
+    return '<div class="notice swn"><span>Sign in with Google to keep the same progress on your computer and phone.</span><button class="btn small btn-primary" data-action="cloud-in" data-id="google">Continue with Google</button><button class="btn small ghost" data-action="cloud-banner-dismiss">Not now</button></div>';
+  }
   function swBanner() {
     if (sw.state === 'stale' && sw.chosen) return '<div class="notice swn"><span>Your save on this PC has <b>' + sw.chosen.diff + '</b> change' + (sw.chosen.diff > 1 ? 's' : '') + ' the companion doesn\'t have yet.</span><button class="btn small btn-primary" data-action="sw-review">Review changes</button><button class="btn small ghost" data-action="sw-dismiss">Later</button></div>';
     if (sw.state === 'needs-access') return '<div class="notice swn"><span>Allow the site to check your save folder.</span><button class="btn small btn-primary" data-action="sw-access">Check my save</button></div>';
@@ -1453,6 +1459,7 @@
         if (open) { var on = list.querySelector('.rm-opt.on') || list.querySelector('.rm-opt'); if (on) { on.focus(); on.scrollIntoView({ block: 'nearest' }); } }
         return;
       }
+      case 'cloud-banner-dismiss': try { localStorage.setItem('hk-companion-cloud-banner', '1'); } catch (e) { /* noop */ } render(true); return;
       case 'sw-link': sw.msg = ''; SW.link().then(function () { sw.manual = false; return swRefresh(); }).catch(function (err) { if (err && err.name !== 'AbortError') { sw.msg = 'The browser refused that folder (' + err.name + '). Try choosing the save file instead.'; swRender(); } }); return;
       case 'sw-access': SW.requestAccess().then(swRefresh).catch(function () {}); return;
       case 'sw-check': swRefresh(); return;

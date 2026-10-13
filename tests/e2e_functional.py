@@ -389,7 +389,7 @@ with sync_playwright() as p:
     # device 2: brand-new, empty — must PULL, never overwrite
     c2, d2 = fb_device(seed_remote=remote1)
     d2.goto(BASE + '#/save'); d2.wait_for_timeout(500)
-    d2.click('[data-action=cloud-in][data-id=github]'); d2.wait_for_timeout(900)
+    d2.evaluate("document.querySelectorAll('.account-card details').forEach(function(d){d.open=true})"); d2.click('[data-action=cloud-in][data-id=github]'); d2.wait_for_timeout(900)
     check('Account: a new empty device pulls the account progress (GitHub login)', d2.evaluate("window.__popup") == 'github' and d2.evaluate("HKApp.engine.isDone('mantis-claw')"))
     check('Account: ...and never overwrites the cloud copy', d2.evaluate("window.__writes") == 0)
     # live update from another device
@@ -407,15 +407,19 @@ with sync_playwright() as p:
     # e-mail link
     c4, d4 = fb_device()
     d4.goto(BASE + '#/save'); d4.wait_for_timeout(500)
-    d4.fill('#cloudEmail', 'not-an-email'); d4.click('[data-action=cloud-email]'); d4.wait_for_timeout(300)
+    d4.evaluate("document.querySelectorAll('.account-card details').forEach(function(d){d.open=true})"); d4.fill('#cloudEmail', 'not-an-email'); d4.click('[data-action=cloud-email]'); d4.wait_for_timeout(300)
     check('Account: invalid e-mail is rejected', d4.evaluate("window.__sent") is None and 'look right' in d4.locator('.account-card').inner_text())
-    d4.fill('#cloudEmail', 'athos@example.com'); d4.click('[data-action=cloud-email]'); d4.wait_for_timeout(500)
+    d4.evaluate("document.querySelectorAll('.account-card details').forEach(function(d){d.open=true})"); d4.fill('#cloudEmail', 'athos@example.com'); d4.click('[data-action=cloud-email]'); d4.wait_for_timeout(500)
     sent = d4.evaluate("window.__sent")
     check('Account: e-mail sign-in link requested for this site address', sent and sent['email'] == 'athos@example.com' and sent['s']['handleCodeInApp'] is True and sent['s']['url'] == BASE.split('#')[0], sent)
     d4.goto(BASE + '?oobCode=abc&mode=signIn&apiKey=k#/save'); d4.wait_for_timeout(1000)
     check('Account: opening the link signs in and cleans the address bar', d4.evaluate("HKApp.cloud.user() && HKApp.cloud.user().email") == 'athos@example.com' and 'oobCode' not in d4.url, d4.url)
     d4.click('[data-action=cloud-out]'); d4.wait_for_timeout(400)
     check('Account: sign out returns to the sign-in options', d4.locator('[data-action=cloud-in]').count() == 2)
+    d4.evaluate("location.hash='#/'"); d4.wait_for_timeout(500)
+    check('Dashboard offers Google sign-in when configured and signed out', d4.locator('.swn [data-action=cloud-in][data-id=google]').count() == 1)
+    d4.click('[data-action=cloud-banner-dismiss]'); d4.wait_for_timeout(300)
+    check('Dashboard sign-in prompt can be dismissed', d4.locator('.swn [data-action=cloud-in]').count() == 0)
     for cx in (c1, c2, c3, c4): cx.close()
 
     # --- save watch. Firefox/Safari path (no folder memory): the folder is chosen with webkitdirectory.
