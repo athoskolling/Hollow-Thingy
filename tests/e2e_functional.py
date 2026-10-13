@@ -418,6 +418,26 @@ with sync_playwright() as p:
     check('Account: sign out returns to the sign-in options', d4.locator('[data-action=cloud-in]').count() == 2)
     for cx in (c1, c2, c3, c4): cx.close()
 
+    # --- save watch. Firefox/Safari path (no folder memory): the folder is chosen with webkitdirectory.
+    import shutil, tempfile
+    sd = tempfile.mkdtemp(); shutil.copy(SAVE, os.path.join(sd, 'user1.dat')); open(os.path.join(sd, 'readme.txt'), 'w').write('x')
+    swc = b.new_context(viewport={'width': 1280, 'height': 900}); swc.add_init_script("delete window.showDirectoryPicker;")
+    sp = swc.new_page(); sp.goto(BASE); sp.wait_for_timeout(700)
+    sp.evaluate("location.hash='#/save'"); sp.wait_for_timeout(500)
+    check('save watch: card with folder chooser when the browser cannot remember folders', sp.locator('.savesync input[data-action=sw-dir]').count() == 1)
+    sp.set_input_files('input[data-action=sw-dir]', sd); sp.wait_for_timeout(1000)
+    check('save watch: slot found and changes offered', sp.locator('.sw-slot').count() == 1 and 'to import' in sp.inner_text('.savesync'))
+    sp.click('[data-action=sw-review]'); sp.wait_for_timeout(400)
+    check('save watch: review opens the import preview', 'Changes to apply' in sp.inner_text('#modal'))
+    sp.click('[data-action=apply-import]'); sp.wait_for_timeout(700)
+    check('save watch: after applying, the slot is up to date', 'up to date' in sp.inner_text('.savesync'))
+    check('save page: whole-game report of what is left', sp.locator('.left-rows li').count() >= 3)
+    # Edge/Chrome: remembered-folder flow is offered
+    page.evaluate("location.hash='#/save'"); page.wait_for_timeout(400)
+    check('save watch (Chromium): remembered-folder button is offered', page.locator('.savesync [data-action=sw-link]').count() == 1)
+    swc.close()
+    page.evaluate("location.hash='#/'"); page.wait_for_timeout(300)
+
     # --- difficulty, requirements and Geo per region
     page.evaluate("location.hash='#/regions'"); page.wait_for_timeout(500)
     check('regions: every card shows a difficulty badge', page.locator('.region-card .diff').count() == 18)

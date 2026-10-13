@@ -251,5 +251,17 @@ t('regionPlan lists what is left by kind, with Geo/ore and shrinks when items ar
   assert.strictEqual(E.regionPlan('city-of-tears').left, p.left - 1);
   assert.strictEqual(E.regionPlan('white-palace').kinds.length > 0, true);
 });
+t('save watch: picks only user1-4.dat slots, newest first, and compares with last import', () => {
+  const W = require('../js/savewatch.js');
+  const f = (name, m) => ({ name, lastModified: m, size: 10 });
+  const slots = W.pickSlots([f('user1.dat', 5), f('user1.dat', 9), f('user2.dat.bak1', 3), f('notes.txt', 1), f('user4.dat', 7), f('User3.DAT', 2)]);
+  assert.deepStrictEqual(slots.map(x => x.name + ':' + x.modified), ['user1.dat:9', 'user3.dat:2', 'user4.dat:7']);
+  assert.strictEqual(W.compare({}, slots[0]), 'new');
+  assert.strictEqual(W.compare({ imported: { name: 'user1.dat', modified: 9 } }, slots[0]), 'imported');
+  assert.strictEqual(W.compare({ imported: { name: 'user1.dat', modified: 5 } }, slots[0]), 'new');
+  assert.strictEqual(W.compare({ dismissed: { name: 'user1.dat', modified: 9 } }, slots[0]), 'dismissed');
+  assert.strictEqual(W.compare({}, null), 'none');
+});
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

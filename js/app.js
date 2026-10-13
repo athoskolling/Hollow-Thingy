@@ -10,7 +10,7 @@
   var byId = E.byId;
   var view = document.getElementById('view');
   var expanded = {};             // expanded item rows (UI only)
-  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, panelRegion: null, regionTab: 'overview', panelAll: false };
+  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false };
   var music = null;               // region soundtrack player (audio.js)
   var sync = null;                // optional sync between devices (sync.js — Gist, legacy)
   var cloud = null;               // optional account login + live cloud sync (cloud.js — Firebase)
@@ -283,7 +283,7 @@
     // alerts (only when relevant)
     h += voidHeartBanner(true);
     if (E.isDone('black-egg')) h += '<div class="banner gold compact"><strong>🔓 BLACK EGG OPEN</strong>' + (E.isDone('ending-thk') ? '<span>All three Dreamers are sealed away.</span>' : '<span>⚠️ FAÇA O FINAL BÁSICO ANTES DO VOID HEART.</span>') + '</div>';
-    h += noticeBox();
+    h += noticeBox() + swBanner();
     h += (function () { var n0 = E.nextObjective(); return missableAlert(n0 ? [n0.item.id].concat(E.whileHere(st().currentRegion, n0.item.id, 6).map(function (x) { return x.id; })) : []); })();
     // the one thing to do now
     h += '<section class="card objective" id="objective">';
@@ -1155,11 +1155,12 @@
     var h = '<header class="page-head"><h1>Save & Backup</h1><p class="lead">Everything is saved automatically in this browser (localStorage). Last change: ' + (Date.parse(s.updatedAt) > 0 ? new Date(s.updatedAt).toLocaleString() : 'none yet') + '</p></header>';
     h += syncCard();
     h += '<section class="card"><h3>⚙ Update my save</h3><p>Quick editor for abilities, spells, Dream Nail, nail, resources and progress — the same data as the checklist.</p><button class="btn btn-primary" data-action="open-editor">⚙ UPDATE MY SAVE</button></section>';
-    h += '<section class="card"><h3>📂 Import Hollow Knight save (PC)</h3>' +
-      '<p>Choose your <code>user1.dat</code>…<code>user4.dat</code> file. It is decoded <b>locally in your browser</b> (nothing is uploaded) and you will see a preview before anything changes.</p>' +
-      '<ul class="small muted"><li>Windows: <code>%USERPROFILE%\\AppData\\LocalLow\\Team Cherry\\Hollow Knight\\</code></li><li>macOS: <code>~/Library/Application Support/unity.Team Cherry.Hollow Knight/</code></li><li>Linux: <code>~/.config/unity3d/Team Cherry/Hollow Knight/</code></li></ul>' +
-      '<label class="btn file-btn">📂 IMPORT HOLLOW KNIGHT SAVE<input type="file" accept=".dat,.bak1,.json,.txt" data-action="import-hk" hidden></label>' +
+    h += saveSyncCard();
+    h += '<section class="card"><h3>Import a save file</h3>' +
+      '<p>Or pick a single <code>user1.dat</code>…<code>user4.dat</code> file. It is decoded <b>locally in your browser</b> (nothing is uploaded) and you see a preview before anything changes.</p>' +
+      '<label class="btn file-btn">Import save file<input type="file" accept=".dat,.bak1,.json,.txt" data-action="import-hk" hidden></label>' +
       '<p class="muted small">Beta: field mapping follows the open-source tools bloodorca/hollow and hollow-knight-completion-check. Unknown fields are left untouched. Work on a copy if in doubt — the file is only read.</p></section>';
+    h += leftReport();
     h += '<section class="card"><h3>Backup</h3><div class="btn-row"><button class="btn" data-action="export">⬇ EXPORT PROGRESS → JSON</button>' +
       '<label class="btn file-btn">⬆ IMPORT PROGRESS ← JSON<input type="file" accept=".json,application/json" data-action="import-json" hidden></label>' +
       '<button class="btn danger" data-action="reset">⟲ Reset progress</button></div><p class="muted small">Backups are versioned (<code>"version": ' + HK.State.VERSION + '</code>).</p></section>';
@@ -1270,6 +1271,114 @@
     return h;
   }
 
+
+  /* ============================== SAVE WATCH (user#.dat on this PC) ============================== */
+  var SW = HK.SaveWatch;
+  var sw = { state: SW.supported() ? 'unlinked' : 'unsupported', perm: 'none', slots: [], chosen: null, msg: '', busy: false, manual: false };
+  function swDiff(res) {
+    var n = res.changes.length, sm = res.summary, r = st().resources;
+    if (sm.geo !== null && sm.geo !== r.geo) n++;
+    if (sm.essence !== null && sm.essence !== r.essence) n++;
+    if (sm.grubs !== null && sm.grubs !== r.grubs) n++;
+    return n;
+  }
+  function swDescribe(slot) {
+    return slot.file.arrayBuffer().then(function (buf) {
+      slot.res = HK.SaveImporter.analyze(HK.SaveImporter.decode(buf), DATA, st().checks);
+      slot.diff = swDiff(slot.res); slot.error = null;
+    }).catch(function (err) { slot.error = err.message || 'unreadable'; slot.diff = 0; });
+  }
+  function swEvaluate() {
+    var meta = SW.getMeta(), slots = sw.slots;
+    var chosen = slots.filter(function (x) { return x.name === meta.slot; })[0] || (slots.length === 1 ? slots[0] : null);
+    sw.chosen = chosen;
+    if (!slots.length) { sw.state = 'empty'; return; }
+    if (!chosen) { sw.state = 'choose'; return; }
+    if (chosen.error) { sw.state = 'error'; return; }
+    var cmp = SW.compare(meta, chosen);
+    if (cmp === 'new' && chosen.diff === 0) { SW.patchMeta({ imported: { name: chosen.name, modified: chosen.modified }, slot: chosen.name }); cmp = 'imported'; }
+    sw.state = cmp === 'new' ? 'stale' : cmp === 'dismissed' ? 'dismissed' : 'uptodate';
+  }
+  function swLoad(slots) {
+    sw.busy = true;
+    return Promise.all(slots.map(swDescribe)).then(function () { sw.slots = slots; swEvaluate(); }).then(function () { sw.busy = false; swRender(); });
+  }
+  function swRender() { if (/^#\/(save|$)/.test(location.hash) || location.hash === '' || location.hash === '#/') render(true); }
+  function swRefresh() {
+    if (!SW.hasHandle()) return Promise.resolve();
+    return SW.permission().then(function (p) {
+      sw.perm = p;
+      if (p !== 'granted') { sw.state = 'needs-access'; swRender(); return; }
+      return SW.scan().then(swLoad);
+    }).catch(function (err) { sw.state = 'error'; sw.msg = err.message; swRender(); });
+  }
+  function swStart() {
+    SW.load().then(function (h) { if (h) { sw.state = 'needs-access'; return swRefresh(); } });
+    setInterval(function () {
+      if (document.hidden || sw.busy || !SW.hasHandle() || sw.perm !== 'granted') return;
+      SW.scan().then(function (slots) {
+        var key = function (a) { return a.map(function (x) { return x.name + ':' + x.modified; }).join('|'); };
+        if (key(slots) !== key(sw.slots)) swLoad(slots);
+      }).catch(function () {});
+    }, 20000);
+  }
+  function swReview() {
+    var c = sw.chosen; if (!c) return;
+    swDescribe(c).then(function () {
+      ui.pendingImport = c.res; ui.pendingSlot = { name: c.name, modified: c.modified };
+      openModal('Import Hollow Knight save', importPreviewHtml(c.res, c.name + ' (on this PC)'), 'import');
+    });
+  }
+  function swWhen(ms) { return new Date(ms).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }); }
+  function swSlotLine(x) {
+    var sm = x.res && x.res.summary;
+    return 'Slot ' + x.slot + (sm ? (sm.playTimeHours !== null ? ' · ' + sm.playTimeHours + ' h' : '') + (sm.completionPercentage !== null ? ' · ' + sm.completionPercentage + '% in-game' : '') : '') + ' · saved ' + swWhen(x.modified);
+  }
+  var SAVE_PATHS = '<ul class="small muted"><li>Windows: <code>%USERPROFILE%\\AppData\\LocalLow\\Team Cherry\\Hollow Knight\\</code> (hidden folder: paste this in the dialog\'s address bar)</li><li>macOS: <code>~/Library/Application Support/unity.Team Cherry.Hollow Knight/</code></li><li>Linux: <code>~/.config/unity3d/Team Cherry/Hollow Knight/</code></li></ul>';
+  function saveSyncCard() {
+    var h = '<section class="card savesync"><div class="card-title"><h3>Save on this PC</h3></div>';
+    var pick = '<label class="btn file-btn">Choose save folder<input type="file" webkitdirectory data-action="sw-dir" hidden></label>';
+    if (sw.state === 'unsupported') {
+      h += '<p>This browser can\'t remember a folder, so choose it each visit and the companion compares the files with your progress. <b>Edge and Chrome</b> remember it and check on their own.</p>' + SAVE_PATHS + pick;
+    } else if (sw.state === 'unlinked') {
+      h += '<p>Choose the folder with your <code>user1.dat</code>…<code>user4.dat</code>. The browser remembers it; the files are only read, never uploaded or changed.</p>' + SAVE_PATHS +
+        '<button class="btn btn-primary" data-action="sw-link">Choose save folder</button>' + (sw.msg ? '<p class="small neg">' + esc(sw.msg) + '</p>' : '');
+    } else if (sw.state === 'needs-access') {
+      h += '<p>Folder <b>' + esc(SW.folderName()) + '</b> is remembered. The browser needs one click to allow reading it again.</p><div class="btn-row"><button class="btn btn-primary" data-action="sw-access">Check my save</button><button class="btn ghost" data-action="sw-unlink">Choose another folder</button></div>';
+    } else {
+      h += '<p class="small muted">' + (sw.manual ? 'Folder chosen this visit.' : 'Watching <b>' + esc(SW.folderName()) + '</b> while this tab is open.') + '</p>';
+      if (sw.state === 'empty') h += '<p class="neg">No <code>user1.dat</code>…<code>user4.dat</code> in that folder.</p>';
+      else {
+        h += '<div class="sw-slots">' + sw.slots.map(function (x) {
+          var on = sw.chosen && sw.chosen.name === x.name;
+          return '<button class="sw-slot' + (on ? ' on' : '') + '" data-action="sw-pick" data-id="' + x.name + '" aria-pressed="' + on + '"><span>' + esc(x.error ? 'Slot ' + x.slot + ' · could not be read' : swSlotLine(x)) + '</span>' +
+            (on && !x.error ? '<b class="' + (x.diff ? 'gold' : 'pos') + '">' + (x.diff ? x.diff + ' change' + (x.diff > 1 ? 's' : '') + ' to import' : 'up to date') + '</b>' : '') + '</button>';
+        }).join('') + '</div>';
+        if (sw.state === 'choose') h += '<p class="small">Pick the slot you play on.</p>';
+        if (sw.chosen && sw.chosen.diff) h += '<p class="small">This save is newer than your progress here. Nothing changes until you confirm.</p>';
+      }
+      h += '<div class="btn-row">' + (sw.chosen && sw.chosen.diff ? '<button class="btn btn-primary" data-action="sw-review">Review changes</button>' : '') +
+        (sw.manual ? pick : '<button class="btn" data-action="sw-check">Check now</button>') + '<button class="btn ghost" data-action="sw-unlink">Stop watching</button></div>';
+    }
+    return h + '</section>';
+  }
+  function swBanner() {
+    if (sw.state === 'stale' && sw.chosen) return '<div class="notice swn"><span>Your save on this PC has <b>' + sw.chosen.diff + '</b> change' + (sw.chosen.diff > 1 ? 's' : '') + ' the companion doesn\'t have yet.</span><button class="btn small btn-primary" data-action="sw-review">Review changes</button><button class="btn small ghost" data-action="sw-dismiss">Later</button></div>';
+    if (sw.state === 'needs-access') return '<div class="notice swn"><span>Allow the site to check your save folder.</span><button class="btn small btn-primary" data-action="sw-access">Check my save</button></div>';
+    return '';
+  }
+  function leftReport() {
+    var rows = DATA.REGIONS.map(function (r) { return { r: r, p: E.regionPlan(r.id) }; }).filter(function (x) { return x.p.main > 0; }).sort(function (a, b) { return b.p.main - a.p.main; });
+    var main = rows.reduce(function (a, x) { return a + x.p.main; }, 0), geo = rows.reduce(function (a, x) { return a + x.p.geo.mainRemaining; }, 0);
+    var grubs = st().resources.grubs;
+    var h = '<section class="card"><div class="card-title"><h3>What\'s left in the whole game</h3></div><p class="left-line small"><b>' + main + '</b> main items · <b class="gold">' + fmt(geo) + '</b> Geo' + (grubs < 46 ? ' · ' + (46 - grubs) + ' grubs' : '') + '</p>';
+    h += rows.length ? '<ul class="left-rows">' + rows.map(function (x) {
+      var k = x.p.kinds.filter(function (c) { return c.main; }).slice(0, 3).map(function (c) { return c.main + ' ' + c.name.toLowerCase(); }).join(', ');
+      return '<li><a href="#/region/' + x.r.id + '">' + esc(shortRegion(x.r.id)) + '</a><span class="muted small">' + esc(k) + '</span><b>' + x.p.main + '</b></li>';
+    }).join('') + '</ul>' : '<p class="pos">The main route is complete.</p>';
+    return h + '</section>';
+  }
+
   /* ============================== SEARCH ============================== */
   var searchInput = document.getElementById('globalSearch'), searchBox = document.getElementById('searchResults');
   function runSearch(q) {
@@ -1344,6 +1453,13 @@
         if (open) { var on = list.querySelector('.rm-opt.on') || list.querySelector('.rm-opt'); if (on) { on.focus(); on.scrollIntoView({ block: 'nearest' }); } }
         return;
       }
+      case 'sw-link': sw.msg = ''; SW.link().then(function () { sw.manual = false; return swRefresh(); }).catch(function (err) { if (err && err.name !== 'AbortError') { sw.msg = 'The browser refused that folder (' + err.name + '). Try choosing the save file instead.'; swRender(); } }); return;
+      case 'sw-access': SW.requestAccess().then(swRefresh).catch(function () {}); return;
+      case 'sw-check': swRefresh(); return;
+      case 'sw-pick': SW.patchMeta({ slot: id }); swEvaluate(); render(true); return;
+      case 'sw-review': swReview(); return;
+      case 'sw-dismiss': if (sw.chosen) { SW.patchMeta({ dismissed: { name: sw.chosen.name, modified: sw.chosen.modified } }); swEvaluate(); render(true); } return;
+      case 'sw-unlink': SW.unlink().then(function () { sw.slots = []; sw.chosen = null; sw.manual = false; sw.state = SW.supported() ? 'unlinked' : 'unsupported'; render(true); }); return;
       case 'region-pick': closeRegionMenus(); store.setRegion(id); break;
       case 'toggle': {
         var was = E.isDone(id), it = byId[id];
@@ -1441,12 +1557,13 @@
     if (a === 'import-json') readFile(t, 'text', function (txt) {
       try { store.importJSON(txt); toast('Progress imported ✓', 'ok'); } catch (err) { toast('Import failed: ' + err.message, 'warn'); alert('Import failed: ' + err.message); }
     });
+    if (a === 'sw-dir') { var fl = t.files; sw.manual = true; swLoad(SW.pickSlots(fl)).then(function () { if (!sw.slots.length) { sw.state = 'empty'; } render(true); }); t.value = ''; }
     if (a === 'import-hk') readFile(t, 'buffer', function (buf, file) {
       try {
         var save = HK.SaveImporter.decode(buf);
         var res = HK.SaveImporter.analyze(save, DATA, st().checks);
-        ui.pendingImport = res;
-        openModal('📂 Import Hollow Knight save', importPreviewHtml(res, file.name), 'import');
+        ui.pendingImport = res; ui.pendingSlot = SW.slotName(file.name) ? { name: SW.slotName(file.name), modified: file.lastModified } : null;
+        openModal('Import Hollow Knight save', importPreviewHtml(res, file.name), 'import');
       } catch (err) { console.error(err); alert('Could not read this save: ' + err.message); }
     });
   });
@@ -1474,7 +1591,9 @@
       if (res.summary.essence !== null) store.setResource('essence', res.summary.essence);
       if (res.summary.grubs !== null) store.setResource('grubs', res.summary.grubs);
     }
-    ui.pendingImport = null; closeModal(); toast('Save applied to the roadmap ✓', 'ok');
+    if (ui.pendingSlot) { SW.patchMeta({ imported: ui.pendingSlot, dismissed: null, slot: ui.pendingSlot.name }); ui.pendingSlot = null; }
+    ui.pendingImport = null; closeModal(); toast('Save applied to the roadmap', 'ok');
+    if (sw.slots.length) { Promise.all(sw.slots.map(swDescribe)).then(function () { swEvaluate(); swRender(); }); }
   }
   modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', function (e) {
@@ -1523,6 +1642,7 @@
   music.onChange(function () { if ((location.hash || '').indexOf('#/soundtrack') === 0) render(true); });
   sync = HK.Sync.init(store);
   cloud = HK.Cloud.init(store);
+  swStart();
   cloud.onChange(function () { if ((location.hash || '').indexOf('#/save') === 0) render(true); });
   sync.onChange(function () { var el = document.getElementById('syncStatus'); if (el) el.innerHTML = syncStatusHtml(); });
   var audit = runAudit();
