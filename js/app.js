@@ -822,7 +822,7 @@
 
 
   /* ============================== PLAN: geo planner, farms, missables, later, builds, history ============================== */
-  var PLAN_TABS = [['geo', 'Geo planner'], ['farm', 'Farm routes'], ['missables', 'Missables'], ['later', 'Come back later'], ['builds', 'Charm builds'], ['history', 'History']];
+  var PLAN_TABS = [['geo', 'Geo planner'], ['farm', 'Farm routes'], ['missables', 'Missables'], ['later', 'Come back later'], ['history', 'History']];
   var plan = {};
   views.plan = function (tab) {
     tab = plan[tab] ? tab : 'geo';
@@ -932,24 +932,62 @@
   function buildPool() {
     return itemsWhere(function (i) { return i.type === 'charm' && i.notches && !i.voidHeart && (build.all || E.isDone(i.id)); }).sort(function (a, b) { return (a.charmNum || 99) - (b.charmNum || 99); });
   }
-  function buildUsed(sel) { return sel.reduce(function (s, id) { return s + ((byId[id] && byId[id].notches) || 0); }, 0); }
-  plan.builds = function () {
-    var total = E.notches(), used = buildUsed(build.sel), over = used > total, pool = buildPool();
+  function whereLine(it) {
+    var G = E.regionById[it.region] ? shortRegion(it.region) : '';
+    var cost = it.cost && it.cost.geo ? ' · ' + fmt(it.cost.geo) + ' Geo' : '';
+    var ok = E.isAvailable(it);
+    var need = !ok ? E.missing(it, { noRegion: true }).map(function (g) { return g.ids.map(function (x) { return esc(byId[x] ? byId[x].name : x); }).join(g.mode === 'any' ? ' or ' : ', '); }).join(', ') : '';
+    return '<li class="bt-miss"><b>' + esc(it.name) + '</b> <span class="muted small">' + esc(G) + cost + '</span>' +
+      (ok ? ' <span class="pos small">you can get it now</span>' : '<span class="neg small"> needs ' + (need || 'access to ' + esc(G)) + ' first</span>') +
+      (shortHow(it) ? '<div class="muted small">' + esc(shortHow(it)) + '</div>' : '') + '</li>';
+  }
+  function chips(ids) { return ids.map(function (id) { return '<span class="chip">' + esc(byId[id].name) + ' <span class="notch">' + '◆'.repeat(byId[id].notches || 0) + '</span></span>'; }).join(' '); }
+  function synLines(list) { return list.map(function (x) { return '<li><b>' + esc(byId[x.a].name) + ' + ' + esc(byId[x.b].name) + '</b> — ' + esc(x.fx) + ' <a class="small" href="' + x.src + '" target="_blank" rel="noopener">wiki ↗</a></li>'; }).join(''); }
+  views.builds = function () {
+    var B = HK.Builds, total = E.notches(), used = B.used(byId, build.sel), over = used > total, pool = buildPool();
     var boxes = ''; for (var n = 0; n < Math.max(total, used); n++) boxes += '<span class="nb ' + (n < used ? 'used' : '') + (n >= total ? ' over' : '') + '"></span>';
-    var h = '<section class="card"><h3>' + ico('charm') + ' Charm build maker</h3><div class="notch-meter" aria-label="Notches used">' + boxes + '</div>' +
-      '<p><b>' + used + '</b> / ' + total + ' notches used' + (over ? ' · <span class="neg">Overcharmed — you take double damage (and can’t equip more safely)</span>' : used === total ? ' · <span class="pos">full</span>' : '') + '</p>' +
-      '<label class="chk-line"><input type="checkbox" data-action="build-all"' + (build.all ? ' checked' : '') + '> Plan with charms I don’t own yet</label></section>';
-    h += '<section class="card"><h3>Pick charms <span class="muted">(' + pool.length + ')</span></h3>' + (pool.length ? '<div class="charm-grid">' + pool.map(function (c) {
+    var owned = DATA.ITEMS.filter(function (i) { return i.type === 'charm' && i.notches && !i.voidHeart && E.isDone(i.id); }).length;
+    var h = '<header class="page-head"><h1>Builds</h1><p class="lead">See what you can wear now, what a build still needs, and where to get it.</p></header>';
+    h += '<section class="card"><div class="card-title"><h3>' + ico('charm') + ' Your notches</h3><span class="muted small">' + owned + ' charms owned</span></div><div class="notch-meter" aria-label="Notches used">' + boxes + '</div>' +
+      '<p><b>' + used + '</b> / ' + total + ' notches in the build below' + (over ? ' · <span class="neg">Overcharmed — you take double damage</span>' : used === total && used ? ' · <span class="pos">full</span>' : '') + '</p></section>';
+    /* suggestions */
+    var fits = B.TEMPLATES.map(function (t) { var f = B.fit(t, byId, E.isDone, total); f.t = t; return f; })
+      .sort(function (a, c) { return (c.owned / c.total) - (a.owned / a.total) || c.chosen.length - a.chosen.length; });
+    h += '<section class="card"><div class="card-title"><h3>Suggested builds</h3></div><p class="muted small">Editorial ideas: each groups charms whose wiki effect fits the goal. They are built only from charms you own and never go past your notches.</p><div class="bt-grid">';
+    fits.forEach(function (f) {
+      var t = f.t, act = B.active(f.chosen), missIt = f.missing.map(function (id) { return byId[id]; });
+      var ready = f.owned === f.total;
+      h += '<article class="bt-card"><header><h4>' + esc(t.name) + '</h4><span class="bt-count' + (ready ? ' pos' : '') + '">' + f.owned + '/' + f.total + ' owned</span></header><p class="muted small">' + esc(t.goal) + '</p>';
+      h += f.chosen.length ? '<div class="bt-line"><span class="muted small">Wear now · ' + f.used + '/' + total + ' notches</span><div>' + chips(f.chosen) + '</div></div>' : '<p class="small muted">You don’t own any of these yet.</p>';
+      if (f.skipped.length) h += '<p class="small gold">No room for: ' + f.skipped.map(function (id) { return esc(byId[id].name) + ' (' + byId[id].notches + ')'; }).join(', ') + '</p>';
+      if (act.length) h += '<ul class="bt-syn">' + synLines(act) + '</ul>';
+      if (missIt.length) h += '<details class="obj-how"><summary>' + missIt.length + ' still missing</summary><ul class="bt-miss-list">' + missIt.map(whereLine).join('') + '</ul></details>';
+      h += '<div class="btn-row"><button class="btn small" data-action="build-tpl" data-id="' + t.id + '">Open in maker</button></div></article>';
+    });
+    h += '</div></section>';
+    /* maker */
+    h += '<section class="card"><div class="card-title"><h3>Build maker</h3></div><label class="chk-line"><input type="checkbox" data-action="build-all"' + (build.all ? ' checked' : '') + '> Plan with charms I don’t own yet</label>';
+    h += pool.length ? '<div class="charm-grid">' + pool.map(function (c) {
       var on = build.sel.indexOf(c.id) >= 0, own = E.isDone(c.id);
       return '<button class="cg' + (on ? ' on' : '') + (own ? '' : ' unowned') + '" data-action="build-toggle" data-id="' + c.id + '" aria-pressed="' + on + '" title="' + esc(c.fn || '') + '"><b>' + esc(c.name) + '</b><span class="notch">' + '◆'.repeat(c.notches) + '</span>' + (own ? '' : '<small>not owned</small>') + '</button>';
-    }).join('') + '</div>' : '<p class="muted">You don’t own any charm yet — tick the box above to plan ahead, or collect some first.</p>') + '</section>';
-    if (build.sel.length) h += '<section class="card"><h3>This build</h3><ul class="build-fx">' + build.sel.map(function (id) { var c = byId[id]; return '<li><b>' + esc(c.name) + '</b> <span class="notch">' + '◆'.repeat(c.notches) + '</span> <span class="muted">— ' + esc(c.fn || '') + '</span></li>'; }).join('') + '</ul></section>';
+    }).join('') + '</div>' : '<p class="muted">You don’t own any charm yet. Tick the box above to plan ahead, or collect some first.</p>';
+    h += '</section>';
+    if (build.sel.length) {
+      var act2 = B.active(build.sel), par = B.partners(build.sel), miss2 = build.sel.filter(function (id) { return !E.isDone(id); }).map(function (id) { return byId[id]; });
+      h += '<section class="card"><h3>This build</h3><ul class="build-fx">' + build.sel.map(function (id) { var c = byId[id]; return '<li><b>' + esc(c.name) + '</b> <span class="notch">' + '◆'.repeat(c.notches) + '</span> <span class="muted">— ' + esc(c.fn || '') + '</span>' + (E.isDone(id) ? '' : ' <span class="neg small">not owned</span>') + '</li>'; }).join('') + '</ul>';
+      if (act2.length) h += '<h4>Working together</h4><ul class="bt-syn">' + synLines(act2) + '</ul>';
+      if (par.length) h += '<h4>Would pair well</h4><ul class="bt-syn">' + par.map(function (x) {
+        var inB = build.sel.indexOf(x.a) >= 0, other = byId[inB ? x.b : x.a], oi = inB ? x.b : x.a;
+        return '<li><b>' + esc(other.name) + '</b> ' + (E.isDone(oi) ? '<span class="pos small">you own it</span> ' : '<span class="muted small">not owned</span> ') + '— ' + esc(x.fx) + '</li>'; }).join('') + '</ul>';
+      if (miss2.length) h += '<h4>Still to get for this build</h4><ul class="bt-miss-list">' + miss2.map(whereLine).join('') + '</ul>';
+      h += '</section>';
+    }
     h += '<section class="card"><h3>Save this build</h3><div class="sync-form"><input id="buildName" type="text" maxlength="40" placeholder="Name (e.g. Boss fights)" value="' + esc(build.name) + '" data-action="build-name" aria-label="Build name">' +
       '<button class="btn btn-primary" data-action="build-save"' + (build.sel.length ? '' : ' disabled') + '>' + (build.id ? 'Update' : 'Save') + '</button><button class="btn ghost" data-action="build-clear">Clear</button></div></section>';
     var bs = st().builds;
     h += '<section class="card"><h3>Saved builds <span class="muted">(' + bs.length + ')</span></h3>' + (bs.length ? bs.map(function (b) {
-      var u = buildUsed(b.charms), miss = b.charms.filter(function (c) { return !E.isDone(c); }).length;
-      return '<div class="saved-build"><div><b>' + esc(b.name) + '</b> <span class="muted small">· ' + u + ' notches' + (miss ? ' · ' + miss + ' not owned' : '') + (u > total ? ' · <span class="neg">over your ' + total + '</span>' : '') + '</span><div class="small muted">' + b.charms.map(function (c) { return esc((byId[c] || {}).name || c); }).join(' · ') + '</div></div>' +
+      var u = B.used(byId, b.charms), miss = b.charms.filter(function (c) { return !E.isDone(c); }).length, ac = B.active(b.charms).length;
+      return '<div class="saved-build"><div><b>' + esc(b.name) + '</b> <span class="muted small">· ' + u + ' notches' + (miss ? ' · ' + miss + ' not owned' : ' · all owned') + (ac ? ' · ' + ac + ' synerg' + (ac > 1 ? 'ies' : 'y') : '') + (u > total ? ' · <span class="neg">over your ' + total + '</span>' : '') + '</span><div class="small muted">' + b.charms.map(function (c) { return esc((byId[c] || {}).name || c); }).join(' · ') + '</div></div>' +
         '<div class="btn-row"><button class="btn small" data-action="build-load" data-id="' + b.id + '">Load</button><button class="btn small ghost" data-action="build-del" data-id="' + b.id + '">Delete</button></div></div>';
     }).join('') : '<p class="muted small">No saved builds yet.</p>') + '</section>';
     return h;
@@ -1443,6 +1481,7 @@
     if (name === 'region') html = views.region(arg);
     else if (name === 'trackers') html = views.trackers(arg);
     else if (name === 'map') html = views.map(arg);
+    else if (name === 'plan' && arg === 'builds') { location.replace('#/builds'); return { name: 'builds' }; }
     else if (name === 'plan') html = views.plan(arg);
     else if (views[name]) html = views[name]();
     else html = views.dashboard();
@@ -1503,6 +1542,7 @@
       case 'later': { var on = store.toggleLater(id); toast(on ? '🕒 Added to “Come back later”' : 'Removed from “Come back later”', 'ok'); break; }
       case 'later-clear-done': st().later.filter(E.isDone).forEach(function (x) { store.toggleLater(x); }); break;
       case 'build-toggle': { var bi = build.sel.indexOf(id); if (bi >= 0) build.sel.splice(bi, 1); else build.sel.push(id); render(true); break; }
+      case 'build-tpl': { var tp = HK.Builds.TEMPLATES.filter(function (x) { return x.id === id; })[0]; if (tp) { var ff = HK.Builds.fit(tp, byId, E.isDone, E.notches()); build.sel = ff.chosen.length ? ff.chosen.slice() : tp.picks.filter(function (c) { return byId[c]; }); build.all = !ff.chosen.length; build.id = null; build.name = tp.name; render(true); var mk = document.querySelector('.charm-grid'); if (mk && mk.scrollIntoView) mk.scrollIntoView({ block: 'center' }); } break; }
       case 'build-clear': build.sel = []; build.id = null; build.name = ''; render(true); break;
       case 'build-save': { var nm = (document.getElementById('buildName') || {}).value || build.name || 'Build'; var sid = store.saveBuild({ id: build.id, name: nm, charms: build.sel }); if (sid) { build.id = sid; build.name = nm; toast('Build saved', 'ok'); } else toast('Build limit reached (30)', 'warn'); break; }
       case 'build-load': { var bb = st().builds.filter(function (x) { return x.id === id; })[0]; if (bb) { build.sel = bb.charms.slice(); build.id = bb.id; build.name = bb.name; build.all = build.all || bb.charms.some(function (c) { return !E.isDone(c); }); render(true); } break; }

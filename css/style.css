@@ -939,3 +939,14 @@ details.readiness > summary h3 { margin: 0; flex: 1; }
 .mg-frame iframe{width:100%;height:min(70vh,640px);border:1px solid rgba(232,227,211,.14);border-radius:14px;background:#0c0f15;margin-top:10px}
 .mg-card .card-title{flex-wrap:wrap;gap:10px}
 .region-head .btn-row{margin-top:10px}
+
+/* ---- builds page ---- */
+.bt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:12px}
+.bt-card{border:1px solid rgba(232,227,211,.1);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;background:rgba(255,255,255,.02)}
+.bt-card header{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.bt-card h4{margin:0}
+.bt-count{font-size:.82rem;color:var(--muted,#8c93a3)}
+.bt-line>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bt-syn,.bt-miss-list{list-style:none;margin:6px 0;padding:0;display:grid;gap:8px;font-size:.9rem}
+.bt-miss{padding-top:8px;border-top:1px solid rgba(232,227,211,.08)}
+.bt-card .btn-row{margin-top:auto}

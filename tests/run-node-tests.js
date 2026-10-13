@@ -263,5 +263,24 @@ t('save watch: picks only user1-4.dat slots, newest first, and compares with las
   assert.strictEqual(W.compare({}, null), 'none');
 });
 
+t('builds: every synergy and template charm exists and has a notch cost; synergy pairs are real charms', () => {
+  const B = require('../js/builds.js'), by = {}; D.ITEMS.forEach(i => { by[i.id] = i; });
+  B.SYNERGIES.forEach(s => { assert.ok(by[s.a] && by[s.a].notches, s.a); assert.ok(by[s.b] && by[s.b].notches, s.b); assert.ok(/^https:\/\/hollowknight\.wiki\//.test(s.src)); assert.ok(s.fx.length > 10); });
+  B.TEMPLATES.forEach(tp => tp.picks.forEach(id => { assert.ok(by[id] && by[id].type === 'charm' && by[id].notches, tp.id + ':' + id); assert.ok(!by[id].voidHeart); }));
+});
+t('builds: fit never overcharms, keeps priority order, reports missing vs no-room; synergies need both charms', () => {
+  const B = require('../js/builds.js'), by = {}; D.ITEMS.forEach(i => { by[i.id] = i; });
+  const tpl = { id: 'x', picks: ['fragile-strength', 'quick-slash', 'longnail', 'steady-body'] };   // 3, 3, 2, 1 notches
+  const own = new Set(['fragile-strength', 'quick-slash', 'steady-body']);
+  const f = B.fit(tpl, by, id => own.has(id), 5);
+  assert.deepStrictEqual(f.chosen, ['fragile-strength', 'steady-body']);       // quick-slash (3) no longer fits after 3
+  assert.deepStrictEqual(f.skipped, ['quick-slash']); assert.deepStrictEqual(f.missing, ['longnail']);
+  assert.ok(f.used <= 5); assert.strictEqual(f.owned, 3);
+  assert.strictEqual(B.fit(tpl, by, () => false, 11).chosen.length, 0);
+  assert.strictEqual(B.active(['grubsong']).length, 0);
+  assert.strictEqual(B.active(['grubsong', 'grubberflys-elegy']).length, 1);
+  assert.strictEqual(B.partners(['defenders-crest']).length, 3);
+});
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
