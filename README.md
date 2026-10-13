@@ -249,3 +249,9 @@ Corrigido nessa auditoria:
 - Pale Ore do topo do Crystal Peak é sugerido depois do Monarch Wings (a Wiki diz que o topo exige Monarch Wings, ou truques avançados com nail-bounce).
 - Palácio Branco também exige Monarch Wings (para chegar nos Palace Grounds); Love Key exige Isma's Tear (arena da chave).
 Limites: o site não sabe a *sua* posição no mapa além da região atual que você marca; a ordem dentro de cada fase é uma sugestão (há mais de uma rota válida). Itens “opcionais” e a árvore de Essence não entram no caminho principal.
+
+## Dificuldade, requisitos e "o que falta" por região
+- **Dificuldade 1–5** (Easy → Extreme) por região e por luta (`DATA.REGION_GUIDE`, `DATA.BOSS_DIFF`). São **estimativas editoriais** (consenso da comunidade), não números oficiais — a UI avisa isso.
+- **Requisitos mínimos** = portões do jogo + habilidades que a própria base de dados exige para os objetivos principais da região (testado: o mínimo sempre cobre o portão de entrada). **Recomendados** = Nail, máscaras e itens (ex.: Lumafly Lantern). Nunca bloqueiam nada; só reordenam o roadmap (ex.: o final "The Hollow Knight" espera Nail 3 e 7 máscaras).
+- **"O que falta aqui"** (página da região e Dashboard): Geo restante (rota principal e com opcionais, e quanto falta para você), Pale Ore e Essence necessários, quantos itens de cada tipo e a lista na ordem da rota com o "como pegar" de cada um.
+- Testes: 38 unitários, 126 checagens e2e.

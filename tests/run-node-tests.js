@@ -208,5 +208,48 @@ t('route never recommends an item whose hard requirements are missing, and Void 
   assert.ok(r.indexOf('void-heart') < r.indexOf('ending-sealed-siblings') && r.indexOf('void-heart') < r.indexOf('ending-dream-no-more'));
   assert.ok(r.indexOf('awoken-dream-nail') < r.indexOf('white-fragment-king'));
 });
+t('every region has a difficulty 1-5, valid min/rec ids, and min covers the region gate', () => {
+  D.REGIONS.forEach(r => {
+    const g = D.REGION_GUIDE[r.id]; assert.ok(g, r.id);
+    assert.ok(g.diff >= 1 && g.diff <= 5 && D.DIFF_LABELS[g.diff]);
+    (g.min || []).concat((g.rec && g.rec.items) || []).forEach(id => assert.ok(D.ITEMS.some(i => i.id === id), r.id + ' → ' + id));
+    (r.req || []).forEach(id => assert.ok(g.min.includes(id), r.id + ' min lacks gate ' + id));
+  });
+  Object.keys(D.BOSS_DIFF).forEach(id => assert.ok(D.ITEMS.some(i => i.id === id), id));
+});
+t('readiness reacts to nail level, masks and items; never blocks', () => {
+  const { s, E } = fresh();
+  assert.strictEqual(E.readiness('deepnest').level, 'blocked'); s.setCheck('mantis-claw', true); s.setCheck('mothwing-cloak', true); assert.strictEqual(E.readiness('deepnest').level, 'under');
+  assert.strictEqual(E.readiness('dirtmouth').level, 'ready');
+  ['mantis-claw', 'mothwing-cloak', 'lumafly-lantern', 'nail-1', 'nail-2', 'nail-3'].forEach(id => s.setCheck(id, true));
+  assert.ok(E.readiness('deepnest').rec.nail.ok);
+  assert.ok(E.readiness('deepnest').rec.items[0].ok);
+});
+t('Geo per region sums purchases, shrinks when bought, and ignores excluded/beyond', () => {
+  const { s, E } = fresh();
+  const g0 = E.regionGeo('dirtmouth'); assert.ok(g0.total > 0 && g0.remaining === g0.total);
+  const first = g0.items[0]; s.setCheck(first.id, true);
+  assert.strictEqual(E.regionGeo('dirtmouth').remaining, g0.remaining - first.geo);
+  const all = D.REGIONS.reduce((a, r) => a + E.regionGeo(r.id).total, 0);
+  const direct = D.ITEMS.filter(i => !i.derived && !i.beyond && i.cost && i.cost.geo).reduce((a, i) => a + i.cost.geo, 0);
+  assert.strictEqual(all, direct);
+});
+t('under-prepared Hollow Knight fight is deferred behind cleanup', () => {
+  const { s, E } = fresh();
+  ['lurien', 'monomon', 'herrah'].forEach(id => s.setCheck(id, true));
+  const thk = D.ITEMS.find(i => i.id === 'ending-thk');
+  assert.ok(E.itemGap(thk).gap > 0);
+  assert.notStrictEqual(E.nextObjective().item.id, 'ending-thk');
+});
+t('regionPlan lists what is left by kind, with Geo/ore and shrinks when items are done', () => {
+  const s = St.createStore(D, null), E = createEngine(D, s.get);
+  const p = E.regionPlan('city-of-tears');
+  assert.ok(p.left > 0 && p.main > 0 && p.main <= p.left);
+  assert.strictEqual(p.kinds.reduce((a, k) => a + k.total, 0), p.left);
+  assert.strictEqual(p.geo.remaining, E.regionGeo('city-of-tears').remaining);
+  s.setCheck('soul-master', true);
+  assert.strictEqual(E.regionPlan('city-of-tears').left, p.left - 1);
+  assert.strictEqual(E.regionPlan('white-palace').kinds.length > 0, true);
+});
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

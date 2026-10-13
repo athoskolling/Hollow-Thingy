@@ -139,6 +139,7 @@
     if (it.how) h += '<dt>🧭 How to get</dt><dd class="sp">' + esc(it.how) + (it.tip ? '<br><em>Tip: ' + esc(it.tip) + '</em>' : '') + '</dd>';
     var unlocks = (it.unlocks || []).concat(DATA.ITEMS.filter(function (x) { return x.req.indexOf(it.id) >= 0 && (it.unlocks || []).indexOf(x.id) < 0; }).map(function (x) { return x.id; }));
     if (unlocks.length) h += '<dt>🔓 Unlocks</dt><dd>' + unlocks.slice(0, 14).map(function (u) { return chip(u); }).join(' ') + '</dd>';
+    if (DATA.BOSS_DIFF[it.id]) h += '<dt>⚔ Difficulty</dt><dd>' + diffBadge(DATA.BOSS_DIFF[it.id]) + ' <span class="muted small">editorial estimate</span></dd>';
     h += '<dt>📈 112%</dt><dd>' + completionText(it) + '</dd>';
     if (it.cost && (it.cost.geo || it.cost.ore)) h += '<dt>💰 Cost</dt><dd>' + (it.cost.geo ? fmt(it.cost.geo) + ' Geo' : '') + (it.cost.ore ? ' + ' + it.cost.ore + ' Pale Ore' : '') + (it.cost.geo ? ' <span class="muted">(you have ' + fmt(s.resources.geo) + ')</span>' : '') + '</dd>';
     if (it.essence) h += '<dt>✧ Essence</dt><dd>' + it.essence + '</dd>';
@@ -275,6 +276,7 @@
       h += '<p class="obj-type">' + esc(TYPE_LABEL[it.type]) + ' · ' + (away ? 'head to <b>' + esc(shortRegion(it.region)) + '</b>' : 'here in <b>' + esc(shortRegion(it.region)) + '</b>') + '</p>';
       var reqs = it.req.length || it.any.length || E.missingRegionAccess(it.region).length || it.soft;
       if (reqs) h += '<div class="req-list">' + objReqList(it) + '</div>';
+      h += gapHint(it);
       if (nxt.missing.length) h += '<p class="small neg">Blocked — missing: ' + missingHtml(nxt.missing) + '</p>';
       if (it.loc || it.how) h += '<details class="obj-how' + (s.settings.spoilers ? ' spoiler' : '') + '"><summary>Where & how</summary><p class="sp">' + esc(it.loc || '') + '</p><p class="sp muted">' + esc(it.how || '') + '</p>' +
         (E.recommendedGeo(nxt) ? '<p class="small">Recommended Geo: <b class="gold">' + fmt(E.recommendedGeo(nxt)) + '</b> <span class="muted">(you have ' + fmt(s.resources.geo) + ')</span></p>' : '') + '</details>';
@@ -293,6 +295,7 @@
     h += '<div class="duo">';
     h += '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' In ' + esc(shortRegion(cur)) + '</h3>' +
       '<label class="change-region">Change ' + ico('arrow') + '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label></div>' +
+      leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <span class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '">' + ({ blocked: '🔒 missing a minimum', under: '⚠️ under-prepared', almost: '🟡 almost ready', ready: '✅ ready' })[R.level] + '</span> <a href="#/region/' + cur + '">requirements →</a></p>' : ''; })() +
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
       '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a></section>';
     var up = routeList(4);
@@ -358,6 +361,85 @@
     h += '</ol>';
     return h;
   };
+
+  /* ------------------------------ difficulty & readiness ------------------------------ */
+  function diffBadge(d, withLabel) {
+    if (!d) return '';
+    var dots = ''; for (var k = 1; k <= 5; k++) dots += '<i class="' + (k <= d ? 'on' : '') + '"></i>';
+    return '<span class="diff d' + d + '" title="Difficulty ' + d + '/5 — ' + DATA.DIFF_LABELS[d] + ' (editorial estimate)"><span class="dd" aria-hidden="true">' + dots + '</span>' + (withLabel === false ? '' : '<b>' + DATA.DIFF_LABELS[d] + '</b>') + '</span>';
+  }
+  function okMark(ok) { return ok ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>'; }
+  function readinessCard(id) {
+    var R = E.readiness(id); if (!R) return '';
+    var lv = { blocked: ['🔒', 'Missing a minimum requirement', 'neg'], under: ['⚠️', 'Under-prepared', 'neg'], almost: ['🟡', 'Almost ready', 'gold'], ready: ['✅', 'Ready', 'pos'] }[R.level];
+    var h = '<section class="card readiness"><div class="card-title"><h3>🎯 Requirements</h3><span class="rd-state ' + lv[2] + '">' + lv[0] + ' ' + lv[1] + '</span></div>';
+    h += '<p class="rd-diff">' + diffBadge(R.diff) + ' <span class="muted small">' + esc(R.why) + '</span></p>';
+    var hf = E.hardestFight(id);
+    if (hf) h += '<p class="small muted">Hardest fight here: <b>' + esc(hf.item.name) + '</b> ' + diffBadge(hf.diff) + '</p>';
+    h += '<div class="rd-cols"><div><h4>Minimum <span class="muted small">(game gates)</span></h4><ul class="rd-list">';
+    if (!R.min.length && !R.anyOf) h += '<li class="muted">Nothing special — reachable from the start.</li>';
+    R.anyOf && (h += '<li>' + okMark(R.anyOf.ok) + ' One of: ' + R.anyOf.ids.map(function (x) { return chip(x); }).join(' / ') + '</li>');
+    R.min.forEach(function (m) { h += '<li>' + okMark(m.ok) + ' ' + chip(m.id) + '</li>'; });
+    h += '</ul></div><div><h4>Recommended <span class="muted small">(guidance)</span></h4><ul class="rd-list">';
+    var rc = R.rec;
+    if (rc.nail) h += '<li>' + okMark(rc.nail.ok) + ' Nail level ' + rc.nail.need + ' <span class="muted">(' + E.NAIL_NAMES[rc.nail.need] + ' · you: ' + rc.nail.have + ')</span></li>';
+    if (rc.masks) h += '<li>' + okMark(rc.masks.ok) + ' ' + rc.masks.need + ' Masks <span class="muted">(you: ' + rc.masks.have + ')</span></li>';
+    rc.items.forEach(function (x) { h += '<li>' + okMark(x.ok) + ' ' + chip(x.id) + '</li>'; });
+    if (!rc.nail && !rc.masks && !rc.items.length) h += '<li class="muted">No special preparation.</li>';
+    h += '</ul></div></div>';
+    var G = E.regionGeo(id), have = st().resources.geo;
+    if (G.total) {
+      h += '<p class="rd-geo">💰 <b>Geo to finish everything here:</b> <span class="gold">' + fmt(G.remaining) + '</span> <span class="muted small">of ' + fmt(G.total) + ' total' +
+        (G.remaining !== G.mainRemaining ? ' · ' + fmt(G.mainRemaining) + ' for the main route' : '') + ' · you have ' + fmt(have) + (G.remaining > have ? ' → missing <b>' + fmt(G.remaining - have) + '</b>' : ' → enough') + '</span></p>';
+      if (G.items.length) h += '<details class="obj-how"><summary>Purchases in this region</summary><ul class="rd-list">' + G.items.map(function (x) { return '<li>' + chip(x.id) + ' <span class="gold">' + fmt(x.geo) + '</span>' + (x.optional ? ' <span class="muted small">optional</span>' : '') + '</li>'; }).join('') + '</ul></details>';
+    } else h += '<p class="rd-geo muted small">💰 No Geo purchases tied to this region.</p>';
+    return h + '<p class="muted small">Difficulty and recommendations are editorial estimates, not official figures; they only reorder the roadmap and never block anything.</p></section>';
+  }
+
+  /* ------------------------------ what's left in a region ------------------------------ */
+  function kindChips(P) {
+    return P.kinds.map(function (k) { return '<span class="kind-chip"><b>' + k.main + (k.total !== k.main ? '<small>+' + (k.total - k.main) + '</small>' : '') + '</b> ' + esc(k.name) + '</span>'; }).join('');
+  }
+  function leftSummary(id) {
+    var P = E.regionPlan(id), have = st().resources.geo, G = P.geo;
+    if (!P.left) return '<p class="pos small">✓ Everything in this region is done.</p>';
+    var bits = ['<b>' + P.main + '</b> main · ' + (P.left - P.main) + ' optional left'];
+    if (G.remaining) bits.push('💰 <b class="gold">' + fmt(G.mainRemaining) + '</b> Geo main' + (G.remaining !== G.mainRemaining ? ' (' + fmt(G.remaining) + ' with optional)' : '') + (G.mainRemaining > have ? ' · missing <b class="neg">' + fmt(G.mainRemaining - have) + '</b>' : ' · <span class="pos">enough</span>'));
+    if (P.ore) bits.push('Pale Ore ×' + P.ore);
+    if (P.essence) bits.push('✧ ' + fmt(P.essence) + ' Essence');
+    return '<p class="left-line small">' + bits.join(' · ') + '</p><div class="kind-chips">' + kindChips(P) + '</div>';
+  }
+  function shortHow(it) {
+    var t = it.how || it.loc || ''; var i = t.indexOf('. ');
+    return i > 0 && i < 170 ? t.slice(0, i + 1) : (t.length > 170 ? t.slice(0, 167) + '…' : t);
+  }
+  function leftCard(id) {
+    var P = E.regionPlan(id); if (!P.left) return '<section class="card left-card"><div class="card-title"><h3>📋 What\'s left here</h3></div>' + leftSummary(id) + '</section>';
+    var avail = E.whileHere(id, null), locked = DATA.ITEMS.filter(function (i) {
+      return i.region === id && !i.derived && !i.beyond && !E.isDone(i.id) && !E.isImplied(i.id) && !(i.voidHeart && E.isVoidHeartLocked()) && !(i.excludes && i.excludes.some(E.isDone)) && !E.isAvailable(i);
+    });
+    function step(i, n) {
+      var cost = (i.cost && i.cost.geo) ? ' <span class="gold small">' + fmt(i.cost.geo) + ' Geo</span>' : '';
+      var miss = !E.isAvailable(i) ? '<p class="small neg">Needs first: ' + missingHtml(E.missing(i)) + '</p>' : '';
+      return '<li class="step' + (i.optional ? ' optional' : '') + '">' + rrow(i, { sub: (i.optional ? 'Optional · ' : '') + (TYPE_LABEL[i.type] || i.type) }) +
+        '<div class="step-how">' + (cost ? '<p>' + cost + '</p>' : '') + (shortHow(i) ? '<p class="sp muted small">' + esc(shortHow(i)) + '</p>' : '') + miss + '</div></li>';
+    }
+    var main = avail.filter(function (i) { return !i.optional; }), opt = avail.filter(function (i) { return i.optional; });
+    var h = '<section class="card left-card"><div class="card-title"><h3>📋 What\'s left here</h3><span class="muted small">in route order</span></div>' + leftSummary(id);
+    h += '<ol class="steps">' + main.slice(0, 10).map(step).join('') + '</ol>';
+    if (main.length > 10) h += '<details class="obj-how"><summary>' + (main.length - 10) + ' more main items</summary><ol class="steps">' + main.slice(10).map(step).join('') + '</ol></details>';
+    if (locked.length) h += '<details class="obj-how"' + (main.length < 3 ? ' open' : '') + '><summary>🔒 ' + locked.length + ' waiting on something else</summary><ol class="steps">' + locked.map(step).join('') + '</ol></details>';
+    if (opt.length) h += '<details class="obj-how"><summary>' + opt.length + ' optional (not needed for 112%)</summary><ol class="steps">' + opt.map(step).join('') + '</ol></details>';
+    return h + '</section>';
+  }
+  function gapHint(it) {
+    var g = E.itemGap(it); if (!g || !g.gap) return '';
+    var bits = [];
+    if (g.nail && !g.nail.ok) bits.push('Nail ' + g.nail.need + ' (you: ' + g.nail.have + ')');
+    if (g.masks && !g.masks.ok) bits.push(g.masks.need + ' Masks (you: ' + g.masks.have + ')');
+    g.items.forEach(function (x) { if (!x.ok) bits.push(x.name); });
+    return '<p class="small gold">⚠ Recommended before this: ' + bits.map(esc).join(' · ') + '</p>';
+  }
   views.regions = function () {
     var h = '<header class="page-head"><h1>Regions</h1><p class="lead">✓ COMPLETE · → CURRENT · ○ FUTURE — optional items never block a region.</p></header>' + regionSelect();
     h += '<div class="region-grid">' + DATA.REGIONS.map(function (r) {
@@ -366,8 +448,8 @@
         .sort(function (a, b) { return (b.goal ? 1 : 0) - (a.goal ? 1 : 0) || (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0); })[0];
       return '<a class="region-card theme-' + r.theme + ' st-' + status + '" href="#/region/' + r.id + '">' +
         '<div class="rc-top"><span class="rc-status">' + (status === 'complete' ? '✓ COMPLETE' : status === 'current' ? '→ CURRENT' : '○ FUTURE') + '</span>' + (p.accessible ? '' : '<span class="badge muted">access needed</span>') + '</div>' +
-        '<h3>' + esc(r.name) + '</h3><div class="bar"><span style="width:' + p.pct + '%"></span></div>' +
-        '<div class="rc-meta">' + p.mainDone + '/' + p.main + ' main · ' + p.allDone + '/' + p.all + ' total</div>' +
+        '<h3>' + esc(r.name) + '</h3>' + diffBadge((DATA.REGION_GUIDE[r.id] || {}).diff) + '<div class="bar"><span style="width:' + p.pct + '%"></span></div>' +
+        '<div class="rc-meta">' + p.mainDone + '/' + p.main + ' main · ' + p.allDone + '/' + p.all + ' total' + (function () { var G = E.regionGeo(r.id); return G.remaining ? ' · 💰 ' + fmt(G.remaining) : ''; })() + '</div>' +
         (goal ? '<div class="rc-goal">Next: ' + esc(goal.name) + '</div>' : '<div class="rc-goal pos">Main route done</div>') + '</a>';
     }).join('') + '</div>';
     return h;
@@ -400,6 +482,8 @@
     if (acc.length) h += '<div class="banner warn compact">Access requirements not recorded: ' + missingHtml(acc) + '</div>';
     if (st().currentRegion !== id) h += '<button class="btn small" data-action="set-region" data-id="' + id + '">📍 I am here</button>';
     h += '</header>';
+    h += readinessCard(id);
+    h += leftCard(id);
     var main = items.filter(function (i) { return !i.derived && !i.optional && !i.beyond && !E.isDone(i.id) && !E.isImplied(i.id) && !(i.voidHeart && E.isVoidHeartLocked()); })
       .sort(function (a, b) { return (b.goal ? 1 : 0) - (a.goal ? 1 : 0) || (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0) || (b.prio || 0) - (a.prio || 0); })[0];
     var here = E.whileHere(id, main && main.id);

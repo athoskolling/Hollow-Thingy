@@ -162,6 +162,7 @@
       return 'future';
     }
 
+
     /* ---------------- next-objective engine ---------------- */
     function candidatePool(includeOptional) {
       var all112 = completion().value >= 112;
@@ -186,6 +187,88 @@
       });
       return idx;
     }
+    /* ---------------- readiness (difficulty / min / recommended) ---------------- */
+    var CHALLENGE = { boss: 1, warrior: 1, dreamboss: 1, ending: 1, colosseum: 1, godhome: 1 };
+    function guideOf(regionId) { return (DATA.REGION_GUIDE || {})[regionId] || null; }
+    function nm(id) { return byId[id] ? byId[id].name : id; }
+    function recCheck(rec, itemW) {
+      var out = { nail: null, masks: null, items: [], gap: 0 };
+      if (!rec) return out;
+      if (rec.nail) { var have = nailLevel(); out.nail = { need: rec.nail, have: have, ok: have >= rec.nail }; out.gap += Math.max(0, rec.nail - have) * 35; }
+      if (rec.masks) { var m = shards().masks; out.masks = { need: rec.masks, have: m, ok: m >= rec.masks }; out.gap += Math.max(0, rec.masks - m) * 20; }
+      (rec.items || []).forEach(function (id) { var ok = isDone(id); out.items.push({ id: id, name: nm(id), ok: ok }); if (!ok) out.gap += (itemW || 50); });
+      return out;
+    }
+    /** Minimum (hard) + recommended (soft) for a region, checked against the current save. */
+    function readiness(regionId) {
+      var g = guideOf(regionId); if (!g) return null;
+      var reg = regionById[regionId];
+      var min = (g.min || []).map(function (id) { return { id: id, name: nm(id), ok: isDone(id) }; });
+      var anyOf = (reg.any && reg.any.length) ? { ids: reg.any.slice(), names: reg.any.map(nm), ok: reg.any.some(isDone) } : null;
+      var rec = recCheck(g.rec);
+      var minMissing = min.filter(function (x) { return !x.ok; }).length + (anyOf && !anyOf.ok ? 1 : 0);
+      var level = minMissing ? 'blocked' : rec.gap === 0 ? 'ready' : rec.gap <= 60 ? 'almost' : 'under';
+      return { diff: g.diff, label: DATA.DIFF_LABELS[g.diff], why: g.why, min: min, anyOf: anyOf, rec: rec, minMissing: minMissing, level: level, note: g.rec && g.rec.note || '' };
+    }
+    /** Soft readiness gap for one item: its own recommendation, or its region's (challenge fights only). */
+    function itemGap(i) {
+      var own = (DATA.ITEM_REC || {})[i.id];
+      if (own) return recCheck(own, 120);
+      if (CHALLENGE[i.type]) { var g = guideOf(i.region); if (g) return recCheck(g.rec); }
+      return null;
+    }
+    function readinessPenalty(i) { var r = itemGap(i); return r ? Math.min(r.gap, 140) : 0; }
+    function hardestFight(regionId) {
+      var best = null;
+      DATA.ITEMS.forEach(function (i) { var d = (DATA.BOSS_DIFF || {})[i.id]; if (d && i.region === regionId && !i.beyond && (!best || d > best.diff)) best = { item: i, diff: d }; });
+      return best;
+    }
+    /** Geo needed in a region: what is still to buy here (main route / everything). */
+    function regionGeo(regionId) {
+      var out = { total: 0, remaining: 0, mainRemaining: 0, items: [] };
+      DATA.ITEMS.forEach(function (i) {
+        if (i.region !== regionId || i.derived || i.beyond || !(i.cost && i.cost.geo)) return;
+        if (i.excludes && i.excludes.some(isDone)) return;
+        out.total += i.cost.geo;
+        if (isDone(i.id)) return;
+        out.remaining += i.cost.geo; if (!i.optional) out.mainRemaining += i.cost.geo;
+        out.items.push({ id: i.id, name: i.name, geo: i.cost.geo, optional: !!i.optional });
+      });
+      return out;
+    }
+
+    /** Everything still to do in a region, by kind, with Geo / Pale Ore / Essence needed — drives the "what's left here" cards. */
+    var KINDS = [
+      ['Skills & spells', function (i) { return ['ability', 'spell', 'dream', 'nailart', 'nail'].indexOf(i.type) >= 0; }],
+      ['Bosses & fights', function (i) { return ['boss', 'warrior', 'dreamboss', 'colosseum'].indexOf(i.type) >= 0; }],
+      ['Dreamers & endings', function (i) { return i.type === 'dreamer' || i.type === 'ending'; }],
+      ['Charms & notches', function (i) { return i.type === 'charm' || i.type === 'notch'; }],
+      ['Mask shards', function (i) { return i.type === 'mask'; }],
+      ['Vessel fragments', function (i) { return i.type === 'vessel'; }],
+      ['Pale Ore', function (i) { return i.type === 'ore'; }],
+      ['Keys & access', function (i) { return i.type === 'key' || i.type === 'access'; }],
+      ['Grimm Troupe', function (i) { return i.type === 'grimm'; }],
+      ['Whispering Roots', function (i) { return i.type === 'root'; }],
+      ['Godhome', function (i) { return i.type === 'godhome'; }]
+    ];
+    function regionPlan(regionId) {
+      var imp = impliedSet(), cats = {};
+      var left = DATA.ITEMS.filter(function (i) {
+        return i.region === regionId && !i.derived && !isDone(i.id) && !imp[i.id] && !i.beyond &&
+          !(i.excludes && i.excludes.some(isDone)) && !(i.voidHeart && isVoidHeartLocked());
+      });
+      var ore = 0, essence = 0;
+      left.forEach(function (i) {
+        if (i.cost && i.cost.ore) ore += i.cost.ore;
+        if (i.soft && i.soft.essence) essence = Math.max(essence, i.soft.essence);
+        var name = 'Other';
+        for (var k = 0; k < KINDS.length; k++) if (KINDS[k][1](i)) { name = KINDS[k][0]; break; }
+        var c = cats[name] = cats[name] || { name: name, total: 0, main: 0 };
+        c.total++; if (!i.optional) c.main++;
+      });
+      return { left: left.length, main: left.filter(function (i) { return !i.optional; }).length, ore: ore, essence: essence, geo: regionGeo(regionId),
+        kinds: Object.keys(cats).map(function (k) { return cats[k]; }).sort(function (a, b) { return b.main - a.main || b.total - a.total; }) };
+    }
     function score(i, ctx) {
       var st = stageIndex[i.stage] !== undefined ? stageIndex[i.stage] : stageIndex['s-cleanup'];
       // side content of stages already passed is postponed to the current stage (after its goals)
@@ -198,6 +281,7 @@
       if (i.region === ctx.current && st <= ctx.minStage + 2) sc -= 70;   // you are already here: reduce backtracking
       if (softIssues(i).length) sc += 400;         // numeric condition (Essence/Grubs/Charms) not reached yet
       if (i.cost && i.cost.geo && i.cost.geo > ctx.geo) sc += 120;        // can't afford yet
+      sc += readinessPenalty(i);                    // under-prepared for the fight (nail / masks / recommended items)
       return sc;
     }
     function nextObjective() {
@@ -310,6 +394,7 @@
       nextObjective: nextObjective, whileHere: whileHere, readyToCollect: readyToCollect, blockedObjectives: blockedObjectives,
       recommendedGeo: recommendedGeo, upcomingExpenses: upcomingExpenses, stageStatus: stageStatus,
       inconsistencies: inconsistencies, impliedSet: impliedSet, isImplied: isImplied, isVoidHeartLocked: isVoidHeartLocked, voidHeartViolation: voidHeartViolation,
+      readiness: readiness, regionPlan: regionPlan, itemGap: itemGap, hardestFight: hardestFight, regionGeo: regionGeo,
       isMain: isMain, stageIndex: stageIndex, regionById: regionById
     };
   }

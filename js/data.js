@@ -606,9 +606,59 @@
     }
   }
 
+  /* ------------------------------------------------------------------ */
+  /* DIFFICULTY & READINESS                                              */
+  /* diff 1..5 and rec{} are EDITORIAL guidance (community-style), not   */
+  /* official numbers. `min` = abilities/keys the game's own gates and    */
+  /* this database's requirement chains need for the region's main goals. */
+  /* ------------------------------------------------------------------ */
+  var DIFF_LABELS = ['', 'Easy', 'Moderate', 'Hard', 'Very hard', 'Extreme'];
+  var REGION_GUIDE = {
+    'dirtmouth': { diff: 1, why: 'Safe hub: shops, NPCs and the Stag. Only the late Grimm Troupe fights are hard.', min: [], rec: { nail: 0, masks: 5 } },
+    'forgotten-crossroads': { diff: 1, why: 'First area: False Knight, Gruz Mother and Brooding Mawlek. Most of it needs no upgrades.', min: [], rec: { nail: 0, masks: 5 } },
+    'greenpath': { diff: 2, why: 'Hornet Protector, Massive Moss Charger, Vengefly King; acid pools and thorns.', min: [], rec: { nail: 0, masks: 5, items: ['vengeful-spirit'] } },
+    'fungal-wastes': { diff: 2, why: 'Mantis Village and the optional Mantis Lords are the combat checks; bouncy mushrooms.', min: [], rec: { nail: 1, masks: 5, items: ['vengeful-spirit', 'mothwing-cloak'] } },
+    'city-of-tears': { diff: 3, why: 'Soul Sanctum, Soul Master, Watcher Knights and the Collector.', min: ['access-city'], rec: { nail: 1, masks: 5, items: ['vengeful-spirit', 'mothwing-cloak', 'mantis-claw'] } },
+    'crystal-peak': { diff: 3, why: 'Laser and conveyor platforming to Crystal Heart; dark rooms; Crystal Guardian.', min: ['mantis-claw', 'mothwing-cloak'], rec: { nail: 1, masks: 5, items: ['lumafly-lantern'] } },
+    'resting-grounds': { diff: 2, why: 'Calm area; Xero is the only real fight.', min: [], rec: { nail: 1, masks: 5 } },
+    'royal-waterways': { diff: 3, why: 'Long sewer with Dung Defender and Flukemarm.', min: ['mantis-claw', 'mothwing-cloak', 'crystal-heart'], rec: { nail: 2, masks: 6 } },
+    'fog-canyon': { diff: 2, why: 'Acid pools, Uumuu and the Overgrown Mound.', min: ['mantis-claw', 'mothwing-cloak', 'crystal-heart', 'ismas-tear'], rec: { nail: 2, masks: 6 } },
+    'ancient-basin': { diff: 3, why: 'Broken Vessel and Lost Kin; spiky platforming near the Abyss gate.', min: ['mantis-claw', 'mothwing-cloak', 'crystal-heart'], rec: { nail: 2, masks: 6 } },
+    'kingdoms-edge': { diff: 4, why: 'Hornet Sentinel, Oblobbles, Markoth and the Colosseum trials.', min: ['mantis-claw', 'mothwing-cloak', 'crystal-heart', 'monarch-wings'], rec: { nail: 2, masks: 6 } },
+    'deepnest': { diff: 4, why: 'Dark maze with relentless enemies; Nosk, Galien and the Weavers.', min: ['mantis-claw', 'mothwing-cloak'], rec: { nail: 3, masks: 7, items: ['lumafly-lantern'] } },
+    'the-hive': { diff: 3, why: 'Hive Knight and swarms of Hiveling bees.', min: [], rec: { nail: 3, masks: 7 } },
+    'howling-cliffs': { diff: 2, why: 'Open cliffs; Gorb and the Nightmare Lantern altar.', min: [], rec: { nail: 2, masks: 6 } },
+    'queens-gardens': { diff: 3, why: 'Traitor Lord, Mantis Traitors and thorn hazards.', min: ['shade-cloak'], rec: { nail: 3, masks: 7 } },
+    'the-abyss': { diff: 4, why: 'Long platforming climbs through Void; the Abyss gate needs the King\'s Brand.', min: ['mantis-claw', 'mothwing-cloak', 'crystal-heart', 'monarch-wings', 'kings-brand', 'howling-wraiths'], rec: { nail: 3, masks: 8 } },
+    'white-palace': { diff: 5, why: 'The hardest platforming in the base game: saws, spikes and long gauntlets.', min: ['awoken-dream-nail', 'monarch-wings', 'mantis-claw', 'mothwing-cloak', 'crystal-heart'], rec: { nail: 3, masks: 8, items: ['shade-cloak'] } },
+    'godhome': { diff: 5, why: 'Pantheons are back-to-back boss gauntlets; Pure Nail is the standard.', min: ['use-key-godseeker', 'dream-nail'], rec: { nail: 4, masks: 9 } }
+  };
+  /* editorial fight difficulty 1..5 (for the item modal and "hardest fight here") */
+  var BOSS_DIFF = {
+    'gruz-mother': 1, 'false-knight': 1, 'massive-moss-charger': 1, 'vengefly-king': 1,
+    'hornet-protector': 2, 'brooding-mawlek': 2, 'soul-master': 2, 'dung-defender': 2, 'broken-vessel': 2, 'the-collector': 2,
+    'uumuu': 2, 'crystal-guardian': 2, 'soul-warrior': 2, 'pale-lurker': 2, 'trial-warrior': 2,
+    'mantis-lords': 3, 'nosk': 3, 'hornet-sentinel': 3, 'traitor-lord': 3, 'watcher-knights': 3, 'hive-knight': 3, 'flukemarm': 3,
+    'enraged-guardian': 3, 'oblobbles': 3, 'god-tamer': 3, 'gorb': 3, 'xero': 3, 'marmu': 3, 'elder-hu': 3, 'galien': 3, 'no-eyes': 3,
+    'markoth': 3, 'soul-tyrant': 3, 'troupe-master-grimm': 3, 'trial-conqueror': 3, 'ending-thk': 3,
+    'failed-champion': 4, 'lost-kin': 4, 'white-defender': 4, 'grey-prince-zote': 4, 'trial-fool': 4,
+    'pantheon-master': 4, 'pantheon-artist': 4, 'pantheon-sage': 4,
+    'nightmare-king-grimm': 5, 'pantheon-knight': 5, 'pantheon-hallownest': 5, 'absolute-radiance': 5
+  };
+  /* extra per-item recommendations (soft; they only reorder the route, never block) */
+  var ITEM_REC = {
+    'ending-thk': { nail: 3, masks: 7 },
+    'no-eyes': { items: ['lumafly-lantern'] },
+    'mask-stone-sanctuary': { items: ['lumafly-lantern'] },
+    'mask-crossroads-goams': { items: ['mantis-claw'] },
+    'ore-crystal-peak': { items: ['monarch-wings'] }
+  };
+
+
   var DATA = {
     version: 1, REGIONS: REGIONS, STAGES: STAGES, ITEMS: ITEMS, FARMS: FARMS,
     SEER_MILESTONES: SEER_MILESTONES, OFFICIAL_BREAKDOWN: OFFICIAL_BREAKDOWN, auditCategory: auditCategory,
+    DIFF_LABELS: DIFF_LABELS, REGION_GUIDE: REGION_GUIDE, BOSS_DIFF: BOSS_DIFF, ITEM_REC: ITEM_REC,
     TOTAL_ESSENCE_ONE_TIME: 3208, GRUBS_TOTAL: 46
   };
   root.HK = root.HK || {};

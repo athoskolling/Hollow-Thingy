@@ -418,6 +418,22 @@ with sync_playwright() as p:
     check('Account: sign out returns to the sign-in options', d4.locator('[data-action=cloud-in]').count() == 2)
     for cx in (c1, c2, c3, c4): cx.close()
 
+    # --- difficulty, requirements and Geo per region
+    page.evaluate("location.hash='#/regions'"); page.wait_for_timeout(500)
+    check('regions: every card shows a difficulty badge', page.locator('.region-card .diff').count() == 18)
+    page.evaluate("location.hash='#/region/deepnest'"); page.wait_for_timeout(500)
+    check('region page: requirements card with minimum + recommended', page.locator('.readiness .rd-cols li').count() >= 3)
+    check('region page: shows state and Geo line', 'Under-prepared' in page.inner_text('.readiness') or 'Missing a minimum' in page.inner_text('.readiness'))
+    page.evaluate("location.hash='#/region/dirtmouth'"); page.wait_for_timeout(500)
+    check('region page: Geo to finish everything is listed', 'Geo to finish everything here' in page.inner_text('.readiness'))
+    page.screenshot(path='/tmp/claude-0/-home-claude/ce6d1793-9605-5a16-b56e-20dd468630a2/scratchpad/readiness.png', full_page=False)
+    check("region page: 'What's left here' card with kinds and ordered steps", page.locator('.left-card .kind-chip').count() >= 2 and page.locator('.left-card ol.steps > li').count() >= 3)
+    check('region page: left card shows Geo needed', 'Geo main' in page.inner_text('.left-card') or 'Geo' in page.inner_text('.left-card'))
+    n_before = page.locator('.left-card ol.steps > li').count()
+    page.evaluate("location.hash='#/'"); page.wait_for_timeout(500)
+    check('dashboard: current region shows what is left + readiness', page.locator('.kind-chips .kind-chip').count() >= 1 and 'requirements' in page.inner_text('main'))
+    page.screenshot(path='/tmp/claude-0/-home-claude/ce6d1793-9605-5a16-b56e-20dd468630a2/scratchpad/dash_left.png', full_page=True)
+
     # --- mobile menu
     m = b.new_context(viewport={'width': 390, 'height': 844}).new_page()
     m.on('pageerror', lambda e: errors.append('mobile pageerror: ' + str(e)))

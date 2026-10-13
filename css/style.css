@@ -827,3 +827,30 @@ h2.sub { font-size: 1.05rem; margin: 22px 0 10px; color: var(--muted); text-tran
 .sync-conflict > div { padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.05); display: flex; flex-direction: column; }
 .sync-conflict small { color: var(--muted); }
 details.card > .sync-card { padding: 0 0 6px; }
+
+/* difficulty & readiness */
+.diff { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; vertical-align: middle; }
+.diff .dd { display: inline-flex; gap: 3px; }
+.diff .dd i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-2, #444); display: inline-block; }
+.diff .dd i.on { background: var(--dc, #8fd18f); }
+.diff.d1 { --dc: #8fd18f; } .diff.d2 { --dc: #c6d97a; } .diff.d3 { --dc: #f0c35a; } .diff.d4 { --dc: #f08a4b; } .diff.d5 { --dc: #e5544f; }
+.diff b { color: var(--dc); font-weight: 600; }
+.region-card .diff { margin-bottom: 8px; }
+.readiness .rd-diff { margin: 4px 0 8px; }
+.rd-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px 24px; margin: 10px 0; }
+.rd-cols h4 { margin: 0 0 6px; }
+.rd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rd-state { font-size: .85rem; font-weight: 600; }
+.rd-geo { margin: 10px 0 4px; }
+
+/* what's left in a region */
+.left-line { margin: 4px 0 8px; }
+.kind-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.kind-chip { font-size: .76rem; padding: 3px 9px; border-radius: 999px; background: var(--card-2, rgba(255,255,255,.06)); border: 1px solid var(--line, rgba(255,255,255,.12)); }
+.kind-chip b { color: var(--gold, #e8c46a); }
+.kind-chip small { opacity: .6; margin-left: 1px; }
+ol.steps { list-style: none; margin: 8px 0; padding: 0; counter-reset: stp; }
+ol.steps > li.step { counter-increment: stp; position: relative; padding-left: 0; margin-bottom: 4px; }
+.step-how { margin: -2px 0 6px 38px; }
+.step-how p { margin: 1px 0; }
+.step.optional { opacity: .82; }
