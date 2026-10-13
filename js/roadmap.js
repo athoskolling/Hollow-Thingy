@@ -48,6 +48,11 @@
     /** Numeric (soft) conditions not met yet — warnings only. */
     function softIssues(item) {
       var s = S(), out = [];
+      /* Nail upgrades also need Pale Ore IN HAND (collected minus already spent) — the Nailsmith can't upgrade without it. */
+      if (item.type === 'nail' && item.cost && item.cost.ore) {
+        var o = ore();
+        if (o.held < item.cost.ore) out.push({ key: 'ore', need: item.cost.ore, have: o.held, label: item.cost.ore + ' Pale Ore in hand' });
+      }
       if (!item.soft) return out;
       if (item.soft.essence && s.resources.essence < item.soft.essence) out.push({ key: 'essence', need: item.soft.essence, have: s.resources.essence, label: item.soft.essence + ' Essence' });
       if (item.soft.grubs && s.resources.grubs < item.soft.grubs) out.push({ key: 'grubs', need: item.soft.grubs, have: s.resources.grubs, label: item.soft.grubs + ' Grubs' });

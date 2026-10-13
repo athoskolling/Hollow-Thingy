@@ -73,8 +73,8 @@
       access: "Gate in the Ancient Basin opened with the King's Brand. Monarch Wings strongly recommended.",
       req: ['kings-brand'] },
     { id: 'white-palace', name: 'White Palace', theme: 'palace', order: 16,
-      access: 'Dream Nail the Kingsmould corpse in the Palace Grounds (Ancient Basin) — requires the Awoken Dream Nail.',
-      req: ['awoken-dream-nail'] },
+      access: 'Dream Nail the Kingsmould corpse in the Palace Grounds (Ancient Basin) — requires the Awoken Dream Nail, and Monarch Wings to reach the Palace Grounds.',
+      req: ['awoken-dream-nail', 'monarch-wings'] },
     { id: 'godhome', name: 'Godhome', theme: 'godhome', order: 17,
       access: "Unlock the Godseeker's cocoon in the Junk Pit (Royal Waterways) with a Simple Key, then Dream Nail her.",
       req: ['use-key-godseeker', 'dream-nail'] }
@@ -215,11 +215,11 @@
 
   /* ---------- NAIL UPGRADES (4%) ---------- */
   I('nail-1', 'Sharpened Nail', 'nail', 'city-of-tears', 1, {
-    tags: ['progression'], stage: 's-cleanup', cost: { geo: 250, ore: 0 },
+    tags: ['progression'], stage: 's-basin', goal: true, prio: 4, cost: { geo: 250, ore: 0 },
     loc: "Nailsmith's hut (City of Tears).", fn: 'Old Nail → Sharpened Nail (5 → 9 damage).',
     how: 'Pay the Nailsmith 250 Geo.', wiki: W('Nail'), save: { pdGte: ['nailSmithUpgrades', 1] } });
   I('nail-2', 'Channelled Nail', 'nail', 'city-of-tears', 1, {
-    tags: ['progression', 'ore'], stage: 's-cleanup', req: ['nail-1'], cost: { geo: 800, ore: 1 },
+    tags: ['progression', 'ore'], stage: 's-basin', goal: true, prio: 4, req: ['nail-1'], cost: { geo: 800, ore: 1 },
     loc: "Nailsmith's hut (City of Tears).", fn: 'Sharpened → Channelled Nail.',
     how: 'Pay 800 Geo + 1 Pale Ore.', wiki: W('Nail'), save: { pdGte: ['nailSmithUpgrades', 2] } });
   I('nail-3', 'Coiled Nail', 'nail', 'city-of-tears', 1, {
@@ -284,7 +284,7 @@
   function ore(id, name, region, o) { o.tags = ['ore']; o.contrib = true; I(id, name, 'ore', region, 0, o); }
   ore('ore-basin', 'Pale Ore — Ancient Basin', 'ancient-basin', { stage: 's-basin', goal: true, prio: 5, loc: 'Ancient Basin, west of the tram station near the main entrance.', how: 'Defeat the two Lesser Mawleks guarding it.', wiki: W('Pale_Ore'), save: { scene: ['Battle Scene Ore', 'Abyss_17'] } });
   ore('ore-seer', 'Pale Ore — Seer (300 Essence)', 'resting-grounds', { stage: 's-rest', req: ['dream-nail'], soft: { essence: 300 }, loc: 'Seer (Resting Grounds).', how: 'Bring 300 Essence to the Seer.', wiki: W('Pale_Ore'), save: { pd: 'dreamReward3' } });
-  ore('ore-crystal-peak', "Pale Ore — Hallownest's Crown", 'crystal-peak', { stage: 's-peak', goal: true, prio: 5, req: ['mantis-claw'], loc: "Hallownest's Crown, very top of Crystal Peak, inside a Radiance statue base.", how: 'Requires Mantis Claw; Monarch Wings and Crystal Heart recommended (the climb is hard without wings).', wiki: W('Pale_Ore'), save: { scene: ['Shiny Item Stand', 'Mines_34'] } });
+  ore('ore-crystal-peak', "Pale Ore — Hallownest's Crown", 'crystal-peak', { stage: 's-basin', goal: true, prio: 3, req: ['mantis-claw'], loc: "Hallownest's Crown, very top of Crystal Peak, inside a Radiance statue base.", how: 'Requires Mantis Claw. The wiki says the summit needs Monarch Wings (or advanced nail-bounce tricks with Cloak + Claw), so the roadmap sends you here after Monarch Wings.', wiki: W('Pale_Ore'), save: { scene: ['Shiny Item Stand', 'Mines_34'] } });
   ore('ore-nosk', 'Pale Ore — Nosk', 'deepnest', { stage: 's-cleanup', req: ['nosk'], loc: "Nosk's lair (Deepnest) — break a wall in the room west of the Hot Spring.", how: 'Defeat Nosk.', wiki: W('Pale_Ore'), save: { scene: ['Shiny Item Stand', 'Deepnest_32'] } });
   ore('ore-grubfather', 'Pale Ore — Grubfather (31 Grubs)', 'forgotten-crossroads', { stage: 's-cleanup', soft: { grubs: 31 }, loc: 'Grubfather (Forgotten Crossroads).', how: 'Rescue 31 Grubs.', wiki: W('Pale_Ore'), save: { scene: ['Shiny Item Ore', 'Crossroads_38'] } });
   ore('ore-colosseum', 'Pale Ore — Trial of the Conqueror', 'kingdoms-edge', { stage: 's-colo', req: ['trial-conqueror'], loc: 'Colosseum of Fools.', how: 'First clear of the Trial of the Conqueror.', wiki: W('Pale_Ore'), save: { pd: 'colosseumSilverCompleted' } });
@@ -300,7 +300,7 @@
   I('use-key-godseeker', "Use Simple Key — Godseeker's cocoon", 'key', 'royal-waterways', 0, { tags: ['key', 'progression'], stage: 's-godhome', goal: true, prio: 10, keyUse: true, soft: { keyHeld: 1 }, loc: 'Junk Pit (Royal Waterways).', how: 'Use a Simple Key on the chained cocoon, then Dream Nail the Godseeker.', fn: 'Access to Godhome and the Godtuner.', wiki: W('Godseeker'), save: { pd: 'godseekerUnlocked' } });
   I('shopkeepers-key', "Shopkeeper's Key", 'key', 'crystal-peak', 0, { tags: ['key', 'progression'], stage: 's-peak', goal: true, prio: 7, loc: 'Crystal Peak (below where Quirrel can be met).', how: 'Explore Crystal Peak; return it to Sly to unlock more stock (Elegant Key, Sly shards #3/#4, Vessel #2, Heavy Blow, Sprintmaster).', unlocks: ['elegant-key', 'mask-sly-3', 'vessel-sly-2', 'heavy-blow', 'sprintmaster'], wiki: W("Shopkeeper%27s_Key"), save: { any: ['hasSlykey', 'gaveSlykey'] } });
   I('elegant-key', 'Elegant Key', 'key', 'dirtmouth', 0, { tags: ['key', 'progression'], stage: 's-spells', goal: true, prio: 7, req: ['shopkeepers-key'], cost: { geo: 800 }, loc: 'Sly (Dirtmouth).', how: "Buy for 800 Geo after giving Sly his Shopkeeper's Key.", unlocks: ['shade-soul'], wiki: W('Elegant_Key'), save: { any: ['hasWhiteKey', 'usedWhiteKey'] } });
-  I('love-key', 'Love Key', 'key', 'queens-gardens', 0, { tags: ['key'], stage: 's-cleanup', loc: "Queen's Gardens — corpse in the south-east part of the Gardens.", how: "Grab the key (an Isma's Tear arena nearby triggers after taking it).", unlocks: ['the-collector'], wiki: W('Love_Key'), save: { any: ['hasLoveKey', 'openedLoveDoor'] } });
+  I('love-key', 'Love Key', 'key', 'queens-gardens', 0, { tags: ['key'], stage: 's-cleanup', req: ['ismas-tear'], loc: "Queen's Gardens — corpse in the south-east part of the Gardens.", how: "Grab the key (an Isma's Tear arena nearby triggers after taking it).", unlocks: ['the-collector'], wiki: W('Love_Key'), save: { any: ['hasLoveKey', 'openedLoveDoor'] } });
   I('tram-pass', 'Tram Pass', 'key', 'deepnest', 0, { tags: ['key', 'optional'], optional: true, stage: 's-cleanup', loc: 'Failed Tramway (Deepnest).', how: 'Pick it up in the Failed Tramway; lets you ride the trams.', wiki: W('Tram_Pass'), save: { pd: 'hasTramPass' } });
   I('city-crest', 'City Crest', 'key', 'forgotten-crossroads', 0, { tags: ['key', 'progression'], stage: 's-city', req: ['false-knight'], loc: 'Dropped by the False Knight.', how: 'Defeat False Knight; use it on the City of Tears gate.', wiki: W('City_Crest'), save: { pd: 'falseKnightDefeated' } });
   I('all-stag-stations', 'All Stag Stations opened', 'access', 'howling-cliffs', 0, { tags: ['progression'], stage: 's-cleanup', loc: 'Stag Stations across Hallownest (Dirtmouth, Crossroads 50, Greenpath 140, Queen\'s Station 120, City Storerooms 200, Resting Grounds, King\'s Station 300, Queen\'s Gardens 200, Distant Village 250, Hidden Station 300 Geo).', how: 'Open every station; the Stag Nest then becomes available.', unlocks: ['vessel-stag-nest'], wiki: W('Stag_Station'), save: { pd: 'openedStagNest' } });

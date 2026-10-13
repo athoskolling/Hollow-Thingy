@@ -172,5 +172,41 @@ t('firestore.rules: owner-only, validated fields, default deny', () => {
   const r = fs.readFileSync(path.join(root, 'firestore.rules'), 'utf8');
   assert.ok(/request\.auth\.uid == uid/.test(r) && /hasOnly\(\['state', 'updatedAt', 'v'\]\)/.test(r) && /allow read, write: if false/.test(r));
 });
+
+/* ---- Roadmap sanity (wiki-checked fixes) ---- */
+function walkRoute(s, E, hook, max) {
+  const picked = [];
+  for (let k = 0; k < (max || 260); k++) { const o = E.nextObjective(); if (!o) break; if (hook) hook(o.item); picked.push(o.item.id); s.setCheck(o.item.id, true); s.setRegion(o.item.region); }
+  return picked;
+}
+t('nail upgrades need Pale Ore in hand: never recommended before the ore, and Pure Nail needs all 6', () => {
+  const { s, E } = fresh();
+  const n2 = D.ITEMS.find(i => i.id === 'nail-2');
+  assert.ok(E.softIssues(n2).some(x => x.key === 'ore'));
+  s.setCheck('ore-basin', true); assert.ok(!E.softIssues(n2).length);
+  s.setCheck('nail-1', true); s.setCheck('nail-2', true);
+  const n3 = D.ITEMS.find(i => i.id === 'nail-3'); assert.ok(E.softIssues(n3).some(x => x.key === 'ore'), 'Coiled needs 2 more in hand');
+  const { s: s2, E: E2 } = fresh(); const bad = [];
+  walkRoute(s2, E2, it => { if (it.type === 'nail' && E2.softIssues(it).length) bad.push(it.id); });
+  assert.deepStrictEqual(bad, [], 'nail recommended without the ore: ' + bad);
+  assert.strictEqual(E2.completion().value, 112);
+});
+t('route order: Sharpened/Channelled Nail come early (after the first 2 ore), Pure Nail only after every Pale Ore', () => {
+  const { s, E } = fresh(); const r = walkRoute(s, E);
+  assert.ok(r.indexOf('nail-2') < 40, 'Channelled Nail at step ' + r.indexOf('nail-2'));
+  ['ore-crystal-peak', 'ore-basin', 'ore-nosk', 'ore-seer', 'ore-grubfather', 'ore-colosseum'].forEach(o => assert.ok(r.indexOf(o) < r.indexOf('nail-4'), o + ' after Pure Nail'));
+});
+t('Crystal Peak ore is sent after Monarch Wings; White Palace and Love Key gates include Monarch Wings / Isma’s Tear', () => {
+  const { s, E } = fresh(); const r = walkRoute(s, E);
+  assert.ok(r.indexOf('monarch-wings') < r.indexOf('ore-crystal-peak'));
+  assert.ok(D.REGIONS.find(x => x.id === 'white-palace').req.includes('monarch-wings'));
+  assert.ok(D.ITEMS.find(i => i.id === 'love-key').req.includes('ismas-tear'));
+});
+t('route never recommends an item whose hard requirements are missing, and Void Heart only after THK', () => {
+  const { s, E } = fresh(); const r = []; walkRoute(s, E, it => { assert.deepStrictEqual(E.missing(it), [], it.id + ' recommended with missing reqs'); r.push(it.id); });
+  assert.ok(r.indexOf('ending-thk') < r.indexOf('void-heart'));
+  assert.ok(r.indexOf('void-heart') < r.indexOf('ending-sealed-siblings') && r.indexOf('void-heart') < r.indexOf('ending-dream-no-more'));
+  assert.ok(r.indexOf('awoken-dream-nail') < r.indexOf('white-fragment-king'));
+});
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);

@@ -163,7 +163,7 @@ Limitações do importador:
 
 ```bash
 node tools/audit.js                 # auditoria 112%
-node tests/run-node-tests.js        # 29 testes unitários
+node tests/run-node-tests.js        # 33 testes unitários
 python3 tools/make_test_save.py     # (re)gera tests/fixtures/user-test.dat — precisa de `cryptography`
 python3 -m http.server 8765 &       # e depois:
 python3 tests/e2e_functional.py     # 119 checagens no navegador — precisa de `playwright` + Chromium
@@ -240,3 +240,12 @@ Login de verdade (Google, GitHub ou link por e-mail) e sincronização **ao vivo
 
 ### Deploy
 O deploy segue igual: `git push` na `main` → GitHub Pages. Se um dia hospedar em outro domínio, adicione-o em *Authorized domains* e ajuste o Redirect URI do Spotify.
+
+## Auditoria do roadmap (13/10/2026)
+O caminho recomendado foi simulado do 0% ao 112% (211 passos) e conferido com a Wiki. Confirmado: Void Heart só depois do final “The Hollow Knight” (e depois dele: Sealed Siblings e Dream No More), Palácio Branco exige Awoken Dream Nail (1800 Essence), entradas do Crystal Peak (Lumafly Lantern *ou* Desolate Dive), Queen's Gardens (Isma's Tear, Shade Cloak *ou* Monarch Wings), Seer (Dream Wielder 500, Awoken 1800, Ascension 2400), Pale Ore (6 no total; Nail precisa de 0/1/2/3), Godhome (Simple Key no casulo da Godseeker + Dream Nail) e a escolha Nightmare King × Banishment.
+Corrigido nessa auditoria:
+- Upgrades de Nail eram recomendados **sem** o Pale Ore em mãos → agora só aparecem quando o minério está disponível (Pure Nail por último, após os 6 minérios).
+- Sharpened/Channelled Nail passam a vir logo após as duas primeiras Pale Ore (antes ficavam só no fim da “limpeza”).
+- Pale Ore do topo do Crystal Peak é sugerido depois do Monarch Wings (a Wiki diz que o topo exige Monarch Wings, ou truques avançados com nail-bounce).
+- Palácio Branco também exige Monarch Wings (para chegar nos Palace Grounds); Love Key exige Isma's Tear (arena da chave).
+Limites: o site não sabe a *sua* posição no mapa além da região atual que você marca; a ordem dentro de cada fase é uma sugestão (há mais de uma rota válida). Itens “opcionais” e a árvore de Essence não entram no caminho principal.
