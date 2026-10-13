@@ -295,7 +295,7 @@
     h += '<div class="duo">';
     h += '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' In ' + esc(shortRegion(cur)) + '</h3>' +
       '<label class="change-region">Change ' + ico('arrow') + '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label></div>' +
-      leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <span class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '">' + ({ blocked: '🔒 missing a minimum', under: '⚠️ under-prepared', almost: '🟡 almost ready', ready: '✅ ready' })[R.level] + '</span> <a href="#/region/' + cur + '">requirements →</a></p>' : ''; })() +
+      leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <a class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '" href="#/region/' + cur + '">' + ({ blocked: 'missing a minimum', under: 'under-prepared', almost: 'almost ready', ready: 'ready' })[R.level] + ' →</a></p>' : ''; })() +
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
       '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a></section>';
     var up = routeList(4);
@@ -371,43 +371,37 @@
   function okMark(ok) { return ok ? '<span class="pos">✓</span>' : '<span class="neg">✗</span>'; }
   function readinessCard(id) {
     var R = E.readiness(id); if (!R) return '';
-    var lv = { blocked: ['🔒', 'Missing a minimum requirement', 'neg'], under: ['⚠️', 'Under-prepared', 'neg'], almost: ['🟡', 'Almost ready', 'gold'], ready: ['✅', 'Ready', 'pos'] }[R.level];
-    var h = '<section class="card readiness"><div class="card-title"><h3>🎯 Requirements</h3><span class="rd-state ' + lv[2] + '">' + lv[0] + ' ' + lv[1] + '</span></div>';
-    h += '<p class="rd-diff">' + diffBadge(R.diff) + ' <span class="muted small">' + esc(R.why) + '</span></p>';
+    var lv = { blocked: ['🔒 Missing a minimum', 'neg'], under: ['⚠️ Under-prepared', 'neg'], almost: ['🟡 Almost ready', 'gold'], ready: ['✅ Ready', 'pos'] }[R.level];
+    var h = '<details class="card readiness"><summary><h3>🎯 Requirements</h3>' + diffBadge(R.diff) + '<span class="rd-state ' + lv[1] + '">' + lv[0] + '</span></summary>';
+    h += '<p class="small muted">' + esc(R.why) + '</p>';
     var hf = E.hardestFight(id);
-    if (hf) h += '<p class="small muted">Hardest fight here: <b>' + esc(hf.item.name) + '</b> ' + diffBadge(hf.diff) + '</p>';
-    h += '<div class="rd-cols"><div><h4>Minimum <span class="muted small">(game gates)</span></h4><ul class="rd-list">';
-    if (!R.min.length && !R.anyOf) h += '<li class="muted">Nothing special — reachable from the start.</li>';
-    R.anyOf && (h += '<li>' + okMark(R.anyOf.ok) + ' One of: ' + R.anyOf.ids.map(function (x) { return chip(x); }).join(' / ') + '</li>');
-    R.min.forEach(function (m) { h += '<li>' + okMark(m.ok) + ' ' + chip(m.id) + '</li>'; });
-    h += '</ul></div><div><h4>Recommended <span class="muted small">(guidance)</span></h4><ul class="rd-list">';
+    if (hf) h += '<p class="small muted">Hardest fight: <b>' + esc(hf.item.name) + '</b> ' + diffBadge(hf.diff, false) + '</p>';
+    h += '<div class="rd-cols"><div><h4>Minimum</h4><ul class="rd-list">';
+    if (!R.min.length && !R.anyOf) h += '<li class="muted">Nothing special.</li>';
+    R.anyOf && (h += '<li>' + okMark(R.anyOf.ok) + ' One of: ' + R.anyOf.names.map(esc).join(' / ') + '</li>');
+    R.min.forEach(function (m) { h += '<li>' + okMark(m.ok) + ' ' + esc(m.name) + '</li>'; });
+    h += '</ul></div><div><h4>Recommended</h4><ul class="rd-list">';
     var rc = R.rec;
-    if (rc.nail) h += '<li>' + okMark(rc.nail.ok) + ' Nail level ' + rc.nail.need + ' <span class="muted">(' + E.NAIL_NAMES[rc.nail.need] + ' · you: ' + rc.nail.have + ')</span></li>';
+    if (rc.nail) h += '<li>' + okMark(rc.nail.ok) + ' Nail ' + rc.nail.need + ' <span class="muted">(you: ' + rc.nail.have + ')</span></li>';
     if (rc.masks) h += '<li>' + okMark(rc.masks.ok) + ' ' + rc.masks.need + ' Masks <span class="muted">(you: ' + rc.masks.have + ')</span></li>';
-    rc.items.forEach(function (x) { h += '<li>' + okMark(x.ok) + ' ' + chip(x.id) + '</li>'; });
-    if (!rc.nail && !rc.masks && !rc.items.length) h += '<li class="muted">No special preparation.</li>';
-    h += '</ul></div></div>';
-    var G = E.regionGeo(id), have = st().resources.geo;
-    if (G.total) {
-      h += '<p class="rd-geo">💰 <b>Geo to finish everything here:</b> <span class="gold">' + fmt(G.remaining) + '</span> <span class="muted small">of ' + fmt(G.total) + ' total' +
-        (G.remaining !== G.mainRemaining ? ' · ' + fmt(G.mainRemaining) + ' for the main route' : '') + ' · you have ' + fmt(have) + (G.remaining > have ? ' → missing <b>' + fmt(G.remaining - have) + '</b>' : ' → enough') + '</span></p>';
-      if (G.items.length) h += '<details class="obj-how"><summary>Purchases in this region</summary><ul class="rd-list">' + G.items.map(function (x) { return '<li>' + chip(x.id) + ' <span class="gold">' + fmt(x.geo) + '</span>' + (x.optional ? ' <span class="muted small">optional</span>' : '') + '</li>'; }).join('') + '</ul></details>';
-    } else h += '<p class="rd-geo muted small">💰 No Geo purchases tied to this region.</p>';
-    return h + '<p class="muted small">Difficulty and recommendations are editorial estimates, not official figures; they only reorder the roadmap and never block anything.</p></section>';
+    rc.items.forEach(function (x) { h += '<li>' + okMark(x.ok) + ' ' + esc(x.name) + '</li>'; });
+    if (!rc.nail && !rc.masks && !rc.items.length) h += '<li class="muted">—</li>';
+    h += '</ul></div></div><p class="muted small">Editorial estimates — they only reorder the roadmap, never block.</p></details>';
+    return h;
   }
 
   /* ------------------------------ what's left in a region ------------------------------ */
   function kindChips(P) {
-    return P.kinds.map(function (k) { return '<span class="kind-chip"><b>' + k.main + (k.total !== k.main ? '<small>+' + (k.total - k.main) + '</small>' : '') + '</b> ' + esc(k.name) + '</span>'; }).join('');
+    return P.kinds.filter(function (k) { return k.main; }).map(function (k) { return k.main + ' ' + esc(k.name.toLowerCase()); }).join(' · ');
   }
-  function leftSummary(id) {
+  function leftSummary(id, full) {
     var P = E.regionPlan(id), have = st().resources.geo, G = P.geo;
     if (!P.left) return '<p class="pos small">✓ Everything in this region is done.</p>';
     var bits = ['<b>' + P.main + '</b> main · ' + (P.left - P.main) + ' optional left'];
     if (G.remaining) bits.push('💰 <b class="gold">' + fmt(G.mainRemaining) + '</b> Geo main' + (G.remaining !== G.mainRemaining ? ' (' + fmt(G.remaining) + ' with optional)' : '') + (G.mainRemaining > have ? ' · missing <b class="neg">' + fmt(G.mainRemaining - have) + '</b>' : ' · <span class="pos">enough</span>'));
     if (P.ore) bits.push('Pale Ore ×' + P.ore);
     if (P.essence) bits.push('✧ ' + fmt(P.essence) + ' Essence');
-    return '<p class="left-line small">' + bits.join(' · ') + '</p><div class="kind-chips">' + kindChips(P) + '</div>';
+    return '<p class="left-line small">' + bits.join(' · ') + '</p>' + (full ? '<p class="muted small">' + kindChips(P) + '</p>' : '');
   }
   function shortHow(it) {
     var t = it.how || it.loc || ''; var i = t.indexOf('. ');
@@ -420,15 +414,15 @@
     });
     function step(i, n) {
       var cost = (i.cost && i.cost.geo) ? ' <span class="gold small">' + fmt(i.cost.geo) + ' Geo</span>' : '';
-      var miss = !E.isAvailable(i) ? '<p class="small neg">Needs first: ' + missingHtml(E.missing(i)) + '</p>' : '';
+      var mm = E.missing(i, { noRegion: true }), miss = !E.isAvailable(i) ? '<p class="small neg">Needs first: ' + (mm.length ? mm.map(function (g) { return g.ids.map(function (x) { return esc(E.byId[x] ? E.byId[x].name : x); }).join(g.mode === 'any' ? ' or ' : ', '); }).join(', ') : 'access to this region') + '</p>' : '';
       return '<li class="step' + (i.optional ? ' optional' : '') + '">' + rrow(i, { sub: (i.optional ? 'Optional · ' : '') + (TYPE_LABEL[i.type] || i.type) }) +
         '<div class="step-how">' + (cost ? '<p>' + cost + '</p>' : '') + (shortHow(i) ? '<p class="sp muted small">' + esc(shortHow(i)) + '</p>' : '') + miss + '</div></li>';
     }
     var main = avail.filter(function (i) { return !i.optional; }), opt = avail.filter(function (i) { return i.optional; });
-    var h = '<section class="card left-card"><div class="card-title"><h3>📋 What\'s left here</h3><span class="muted small">in route order</span></div>' + leftSummary(id);
-    h += '<ol class="steps">' + main.slice(0, 10).map(step).join('') + '</ol>';
-    if (main.length > 10) h += '<details class="obj-how"><summary>' + (main.length - 10) + ' more main items</summary><ol class="steps">' + main.slice(10).map(step).join('') + '</ol></details>';
-    if (locked.length) h += '<details class="obj-how"' + (main.length < 3 ? ' open' : '') + '><summary>🔒 ' + locked.length + ' waiting on something else</summary><ol class="steps">' + locked.map(step).join('') + '</ol></details>';
+    var h = '<section class="card left-card"><div class="card-title"><h3>📋 What\'s left here</h3></div>' + leftSummary(id, true);
+    h += '<ol class="steps">' + main.slice(0, 6).map(step).join('') + '</ol>';
+    if (main.length > 6) h += '<details class="obj-how"><summary>' + (main.length - 6) + ' more main items</summary><ol class="steps">' + main.slice(6).map(step).join('') + '</ol></details>';
+    if (locked.length) h += '<details class="obj-how"' + '' + '><summary>🔒 ' + locked.length + ' waiting on something else</summary><ol class="steps">' + locked.map(step).join('') + '</ol></details>';
     if (opt.length) h += '<details class="obj-how"><summary>' + opt.length + ' optional (not needed for 112%)</summary><ol class="steps">' + opt.map(step).join('') + '</ol></details>';
     return h + '</section>';
   }

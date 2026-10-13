@@ -854,3 +854,11 @@ ol.steps > li.step { counter-increment: stp; position: relative; padding-left: 0
 .step-how { margin: -2px 0 6px 38px; }
 .step-how p { margin: 1px 0; }
 .step.optional { opacity: .82; }
+
+/* minimal pass */
+details.readiness > summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
+details.readiness > summary::-webkit-details-marker { display: none; }
+details.readiness > summary h3 { margin: 0; flex: 1; }
+.readiness .rd-state { font-size: .8rem; }
+.left-line { margin: 2px 0 2px; }
+.step-how p:empty { display: none; }
