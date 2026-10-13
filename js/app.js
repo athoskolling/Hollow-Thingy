@@ -294,7 +294,8 @@
     var here = E.whileHere(cur, nxt && nxt.item.id, 5);
     h += '<div class="duo">';
     h += '<section class="card"><div class="card-title"><h3>' + ico('pin') + ' In ' + esc(shortRegion(cur)) + '</h3>' +
-      '<label class="change-region">Change ' + ico('arrow') + '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + esc(r.name) + '</option>'; }).join('') + '</select></label></div>' +
+      '<label class="region-pill" title="Change the region you are in"><span class="rp-label">' + ico('pin') + 'Change region</span><svg class="rp-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>' +
+        '<select data-action="region" aria-label="Current region">' + DATA.REGIONS.map(function (r) { var stt = E.regionStatus(r.id); return '<option value="' + r.id + '"' + (r.id === cur ? ' selected' : '') + '>' + (stt === 'complete' ? '✓ ' : r.id === cur ? '● ' : '\u2003') + esc(r.name) + '</option>'; }).join('') + '</select></label></div>' +
       leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <a class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '" href="#/region/' + cur + '">' + ({ blocked: 'missing a minimum', under: 'under-prepared', almost: 'almost ready', ready: 'ready' })[R.level] + ' →</a></p>' : ''; })() +
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
       '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a></section>';
