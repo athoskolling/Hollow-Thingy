@@ -403,8 +403,9 @@ with sync_playwright() as p:
       "export async function setDoc(r,d){window.__writes++;data[r.path]=JSON.parse(JSON.stringify(d));setTimeout(()=>fire(r.path),10)}"
       "export async function deleteDoc(r){delete data[r.path];setTimeout(()=>fire(r.path),10)}")
     FBCFG = "{apiKey:'AIzaTest',authDomain:'t.firebaseapp.com',projectId:'t',appId:'1:2:web:3'}"
-    def fb_device(seed_remote=None, preload_cfg=True, local_checks=None):
+    def fb_device(seed_remote=None, preload_cfg=True, local_checks=None, shipped=False):
         c = b.new_context(viewport={'width': 1366, 'height': 900})
+        if not shipped: c.route('**/js/firebase-config.js*', lambda r: r.fulfill(content_type='application/javascript', body='window.HK_FIREBASE = null;'))   # tests drive the config themselves
         for name, src in (('firebase-app.js', FB_APP), ('firebase-auth.js', FB_AUTH), ('firebase-firestore.js', FB_FS)):
             c.route('https://www.gstatic.com/firebasejs/*/' + name, (lambda body: (lambda r: r.fulfill(content_type='text/javascript', headers={'access-control-allow-origin': '*'}, body=body)))(src))
         c.route('https://open.spotify.com/**', lambda r: r.abort()); c.route('https://fonts.googleapis.com/**', lambda r: r.abort())
@@ -415,6 +416,12 @@ with sync_playwright() as p:
         if init: c.add_init_script(init)
         pg = c.new_page(); pg.on('pageerror', lambda e: errors.append('fb pageerror: ' + str(e))); pg.on('dialog', lambda d: d.accept())
         return c, pg
+    # the config shipped in js/firebase-config.js must make a brand-new browser offer Google sign-in right away (no pasting)
+    cs, ds = fb_device(preload_cfg=False, shipped=True)
+    ds.goto(BASE + '#/save'); ds.wait_for_timeout(500)
+    check('Account: with the shipped Firebase config a new browser offers Google sign-in directly', ds.locator('[data-action=cloud-in][data-id=google]').count() == 1 and ds.locator('#fbConfig').count() == 0)
+    check('Account: shipped config points at the hollowknight-tracker project', ds.evaluate("HK.Cloud.configured ? true : true") and ds.evaluate("window.HK_FIREBASE.projectId") == 'hollowknight-tracker-a324f')
+    cs.close()
     # device 1: configure from the UI, sign in, progress is pushed
     c1, d1 = fb_device(preload_cfg=False)
     d1.goto(BASE + '#/save'); d1.wait_for_timeout(400)
