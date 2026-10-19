@@ -21,10 +21,11 @@
   function isPristine(s) {
     if (!s) return true;
     var r = s.resources || {};
-    return !Object.keys(s.checks || {}).length && !(r.geo || r.essence || r.grubs) && !Object.keys(s.notes || {}).length && !(s.builds || []).length && !(s.later || []).length;
+    return !Object.keys(s.checks || {}).length && !(r.geo || r.essence || r.grubs) && !Object.keys(s.notes || {}).length && !(s.builds || []).length && !(s.later || []).length && !relicTotal(s);
   }
+  function relicTotal(s) { var t = 0; Object.keys(s.relics || {}).forEach(function (k) { t += ((s.relics[k] || {}).found || 0) + ((s.relics[k] || {}).sold || 0); }); return t; }
   function sameProgress(a, b) {
-    function k(s) { var r = s.resources || {}; return JSON.stringify([Object.keys(s.checks || {}).sort(), r.geo || 0, r.essence || 0, r.grubs || 0]); }
+    function k(s) { var r = s.resources || {}; return JSON.stringify([Object.keys(s.checks || {}).sort(), r.geo || 0, r.essence || 0, r.grubs || 0, s.relics || {}]); }
     return k(a) === k(b);
   }
   function merge(local, remote) {
@@ -32,6 +33,11 @@
     out.checks = Object.assign({}, remote.checks, local.checks);
     out.resources = {};
     ['geo', 'essence', 'grubs'].forEach(function (k) { out.resources[k] = Math.max((local.resources || {})[k] || 0, (remote.resources || {})[k] || 0); });
+    out.relics = {};
+    Object.keys(Object.assign({}, remote.relics, local.relics)).forEach(function (k) {
+      var a = (local.relics || {})[k] || {}, b = (remote.relics || {})[k] || {};
+      out.relics[k] = { found: Math.max(a.found || 0, b.found || 0), sold: Math.max(a.sold || 0, b.sold || 0) };
+    });
     out.notes = Object.assign({}, remote.notes, local.notes);
     out.later = (local.later || []).concat((remote.later || []).filter(function (x) { return (local.later || []).indexOf(x) < 0; }));
     var ids = {}; out.builds = (local.builds || []).concat(remote.builds || []).filter(function (b) { if (ids[b.id]) return false; ids[b.id] = 1; return true; });

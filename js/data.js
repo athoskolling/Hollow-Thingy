@@ -655,8 +655,15 @@
   };
 
 
+  /* Relics you carry to Lemm. Totals and prices from the wiki (checked Oct 2026). total/geo = null where not confirmed yet. */
+  var RELICS = [
+    { id: 'journal', name: "Wanderer's Journal", total: 14, geo: 200, src: W('Wanderer%27s_Journal') },
+    { id: 'seal', name: 'Hallownest Seal', total: 17, geo: 450, src: W('Hallownest_Seal'), note: 'One comes from the Seer (100 Essence).' },
+    { id: 'idol', name: "King's Idol", total: null, geo: null, src: W('King%27s_Idol') }
+  ];
+
   var DATA = {
-    version: 1, REGIONS: REGIONS, STAGES: STAGES, ITEMS: ITEMS, FARMS: FARMS,
+    version: 1, RELICS: RELICS, REGIONS: REGIONS, STAGES: STAGES, ITEMS: ITEMS, FARMS: FARMS,
     SEER_MILESTONES: SEER_MILESTONES, OFFICIAL_BREAKDOWN: OFFICIAL_BREAKDOWN, auditCategory: auditCategory,
     DIFF_LABELS: DIFF_LABELS, REGION_GUIDE: REGION_GUIDE, BOSS_DIFF: BOSS_DIFF, ITEM_REC: ITEM_REC,
     TOTAL_ESSENCE_ONE_TIME: 3208, GRUBS_TOTAL: 46

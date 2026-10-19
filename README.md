@@ -261,7 +261,7 @@ Menos caixas (os 4 números viraram uma faixa), rótulos em minúsculas e sem em
 
 ## Save no PC (leitura automática do user#.dat)
 My Save → "Save on this PC". **Edge/Chrome:** escolha a pasta do save uma vez (Windows: `%USERPROFILE%\AppData\LocalLow\Team Cherry\Hollow Knight\`); o navegador lembra a pasta e, enquanto a aba estiver aberta, o site confere a cada ~20 s se o `user#.dat` ficou mais novo que o último import. Se houver diferenças aparece um aviso no Dashboard ("Review changes") com a mesma prévia/confirmação do import — nada muda sem você aplicar. Depois de reabrir o navegador ele pede um clique ("Check my save"). **Firefox/Safari/celular:** não existe API para lembrar pastas, então você escolhe a pasta a cada visita e o site compara. Os arquivos só são lidos, nunca enviados. Também há o relatório "What's left in the whole game".
-Testes: 41 unitários, 147 checagens e2e.
+Testes: 44 unitários, 154 checagens e2e.
 
 ## Mapa: o que falta + MapGenie
 
@@ -277,3 +277,9 @@ Página própria em `#/builds` (a antiga aba Plan → Charm builds redireciona p
 - **Montador:** escolha charms, veja o medidor de notches, o aviso de Overcharm (dano em dobro), as sinergias ativas e as que combinariam. Salvar, carregar e apagar builds (acompanham o save e o sync da conta).
 - **Fontes:** custo em notches e efeitos vêm de `data.js`. As 8 sinergias em `js/builds.js` são da wiki do Hollow Knight (página Charm Synergies e a seção Synergies de cada charm), checadas em out/2026. Só entram pares em que a wiki nomeia os dois charms. Os modelos de build são sugestões editoriais e não alteram o roadmap.
 - Void Heart nunca é oferecido no montador.
+
+## Pale Ore e relíquias
+
+- **Pale Ore** (Trackers → Nail & Ore): barra de 6, quantos você tem em mãos, quantos gastou no nail e a lista "Still to find" com onde está cada um e o que falta (acesso, Grubs, Essence). Marque cada minério ao pegar.
+- **Relics** (Trackers → Relics): contadores de achados e vendidos para Lemm, por tipo. Mostra o que está na bolsa, o que falta achar e o valor em Geo. Os contadores sincronizam com a conta (maior valor vence) e entram no backup.
+- Dados (wiki, out/2026): Wanderer's Journal 14 (200 Geo) e Hallownest Seal 17 (450 Geo). A wiki tem uma inconsistência na lista de origem dos selos, então confira se o seu total bate. **King's Idol**: total e preço ainda não confirmados, então só o contador é usado.

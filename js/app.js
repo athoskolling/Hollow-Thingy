@@ -636,7 +636,7 @@
 
   /* ------------------------------ trackers ------------------------------ */
   function trackerTabs(active) {
-    var tabs = [['geo', 'Geo'], ['abilities', 'Movement & Spells'], ['keys', 'Keys'], ['nail', 'Nail & Ore'], ['masks', 'Masks & Vessels'], ['charms', 'Charms'], ['nailarts', 'Nail Arts'], ['essence', 'Essence'],
+    var tabs = [['geo', 'Geo'], ['abilities', 'Movement & Spells'], ['keys', 'Keys'], ['nail', 'Nail & Ore'], ['relics', 'Relics'], ['masks', 'Masks & Vessels'], ['charms', 'Charms'], ['nailarts', 'Nail Arts'], ['essence', 'Essence'],
       ['bosses', 'Bosses'], ['guide', 'Boss guide'], ['endings', 'Dreamers & Endings'], ['grimm', 'Grimm Troupe'], ['colosseum', 'Colosseum'], ['godhome', 'Godhome']];
     return '<div class="tabs" role="tablist">' + tabs.map(function (t) { return '<a role="tab" class="tab' + (t[0] === active ? ' on' : '') + '" href="#/trackers/' + t[0] + '">' + t[1] + '</a>'; }).join('') + '</div>';
   }
@@ -682,8 +682,34 @@
     var h = '<section class="card"><h3>⚔ Nail</h3><ol class="nail-chain">' + chain + '</ol>' + nailStatusLine() +
       (o.inconsistent ? '<div class="banner warn compact">Nail upgrades use ' + o.spent + ' Pale Ore but only ' + o.collected + ' are checked.</div>' : '') +
       itemList(itemsWhere(function (i) { return i.type === 'nail'; })) + '</section>';
-    h += '<section class="card"><h3>⬢ Pale Ore <span class="muted">' + o.collected + '/6 · held ' + o.held + ' · spent ' + o.spent + '</span></h3>' +
-      itemList(itemsWhere(function (i) { return i.type === 'ore'; }), { showRegion: true }) + '</section>';
+    var oreAll = itemsWhere(function (i) { return i.type === 'ore'; }), oreLeft = oreAll.filter(function (i) { return !E.isDone(i.id); }), oreDone = oreAll.filter(function (i) { return E.isDone(i.id); });
+    h += '<section class="card"><div class="card-title"><h3>Pale Ore</h3><span class="muted small">' + o.collected + '/6 found</span></div>' + bar(o.collected / 6 * 100) +
+      '<div class="atlas-facts"><span class="soft">In your hands <b>' + o.held + '</b></span><span class="soft">Spent on the nail <b>' + o.spent + '</b></span><span class="soft">Still to find <b>' + oreLeft.length + '</b></span></div>';
+    h += oreLeft.length ? '<h4>Still to find</h4><ul class="bt-miss-list">' + oreLeft.map(function (i) {
+      return '<li class="bt-miss">' + '<input type="checkbox" class="chk" data-action="toggle" data-id="' + i.id + '" aria-label="Mark ' + esc(i.name) + ' as found"> ' + whereLine(i).replace(/^<li class="bt-miss">/, '').replace(/<\/li>$/, '') + '</li>'; }).join('') + '</ul>' : '<p class="pos small">All 6 Pale Ore found.</p>';
+    if (oreDone.length) h += '<details class="obj-how"><summary>' + oreDone.length + ' found</summary>' + itemList(oreDone, { showRegion: true }) + '</details>';
+    h += '<p class="muted small">Tick each one when you pick it up. The nail upgrades use 1 + 2 + 3 = 6 Pale Ore in total.</p></section>';
+    return h;
+  };
+  trackers.relics = function () {
+    var R = DATA.RELICS, rs = st().relics || {}, soon = 0;
+    function step(id, field, label, val, max) {
+      return '<label class="res"><span>' + label + '</span><div class="stepper"><button class="icon-btn" data-action="relic-step" data-id="' + id + '" data-field="' + field + '" data-step="-1" aria-label="Decrease ' + label + '">−</button>' +
+        '<input type="number" inputmode="numeric" min="0"' + (max ? ' max="' + max + '"' : '') + ' value="' + val + '" data-action="relic" data-id="' + id + '" data-field="' + field + '" aria-label="' + label + '">' +
+        '<button class="icon-btn" data-action="relic-step" data-id="' + id + '" data-field="' + field + '" data-step="1" aria-label="Increase ' + label + '">+</button></div></label>';
+    }
+    var h = '<section class="card"><h3>Relics</h3><p class="muted small">Count what you pick up and what you have already sold to Lemm. Nothing here changes your completion percentage.</p></section>';
+    R.forEach(function (x) {
+      var c = rs[x.id] || { found: 0, sold: 0 }, held = c.found - c.sold, left = x.total ? x.total - c.found : null;
+      if (x.geo && x.total) soon += (x.total - c.sold) * x.geo;
+      h += '<section class="card relic-card"><div class="card-title"><h3>' + esc(x.name) + '</h3><span class="muted small">' + c.found + (x.total ? '/' + x.total : '') + ' found</span></div>' + (x.total ? bar(c.found / x.total * 100) : '') +
+        '<div class="res-editors">' + step(x.id, 'found', 'Found', c.found, x.total) + step(x.id, 'sold', 'Sold', c.sold, c.found) + '</div>' +
+        '<div class="atlas-facts"><span class="soft">In your bag <b>' + held + '</b></span>' + (left !== null ? '<span class="soft">Still to find <b>' + left + '</b></span>' : '') +
+        (x.geo ? '<span class="soft">Worth <b class="gold">' + fmt(held * x.geo) + '</b> Geo now (' + x.geo + ' each)</span>' : '') + '</div>' +
+        (x.total ? '' : '<p class="muted small">Total and price not confirmed yet, so only the count is tracked.</p>') +
+        (x.note ? '<p class="muted small">' + esc(x.note) + '</p>' : '') + '<a class="small" href="' + x.src + '" target="_blank" rel="noopener">Wiki ↗</a></section>';
+    });
+    h += '<section class="card"><p class="small">Geo still to come from relics you know the price of: <b class="gold">' + fmt(soon) + '</b> <span class="muted">(Wanderer’s Journals and Hallownest Seals, sold to Lemm)</span></p></section>';
     return h;
   };
   trackers.masks = function () {
@@ -937,8 +963,9 @@
     var cost = it.cost && it.cost.geo ? ' · ' + fmt(it.cost.geo) + ' Geo' : '';
     var ok = E.isAvailable(it);
     var need = !ok ? E.missing(it, { noRegion: true }).map(function (g) { return g.ids.map(function (x) { return esc(byId[x] ? byId[x].name : x); }).join(g.mode === 'any' ? ' or ' : ', '); }).join(', ') : '';
+    var soft = ok ? E.softIssues(it).map(function (x) { return esc(x.label) + ' (you: ' + fmt(x.have) + ')'; }).join(', ') : '';
     return '<li class="bt-miss"><b>' + esc(it.name) + '</b> <span class="muted small">' + esc(G) + cost + '</span>' +
-      (ok ? ' <span class="pos small">you can get it now</span>' : '<span class="neg small"> needs ' + (need || 'access to ' + esc(G)) + ' first</span>') +
+      (ok && !soft ? ' <span class="pos small">you can get it now</span>' : ok ? ' <span class="gold small">needs ' + soft + '</span>' : '<span class="neg small"> needs ' + (need || 'access to ' + esc(G)) + ' first</span>') +
       (shortHow(it) ? '<div class="muted small">' + esc(shortHow(it)) + '</div>' : '') + '</li>';
   }
   function chips(ids) { return ids.map(function (id) { return '<span class="chip">' + esc(byId[id].name) + ' <span class="notch">' + '◆'.repeat(byId[id].notches || 0) + '</span></span>'; }).join(' '); }
@@ -1570,6 +1597,7 @@
         var mult = key === 'geo' ? 50 : key === 'essence' ? 10 : 1;
         store.setResource(key, st().resources[key] + step * mult); break;
       }
+      case 'relic-step': { var rid = t.getAttribute('data-id'), rf = t.getAttribute('data-field'), cur = ((st().relics || {})[rid] || {})[rf] || 0; store.setRelic(rid, rf, cur + Number(t.getAttribute('data-step'))); break; }
       case 'open-editor': openEditor(); break;
       case 'export': download('hollow-knight-companion-' + new Date().toISOString().slice(0, 10) + '.json', store.exportJSON()); toast('Progress exported', 'ok'); break;
       case 'reset':
@@ -1613,6 +1641,7 @@
       if (t.checked) toast('✓ ' + it.name + (it.completion ? ' (+' + it.completion + '%)' : ''), 'ok');
     }
     if (a === 'res') store.setResource(t.getAttribute('data-key'), t.value);
+    if (a === 'relic') store.setRelic(t.getAttribute('data-id'), t.getAttribute('data-field'), t.value);
     if (a === 'region') { store.setRegion(t.value); }
     if (a === 'setting') store.setSetting(t.getAttribute('data-key'), t.checked);
     if (a === 'note') store.setNote(id, t.value);

@@ -22,9 +22,20 @@
       later: [],
       history: [],
       builds: [],
+      relics: emptyRelics(DATA),
       /* epoch = "never changed on this device": a brand-new device must never overwrite synced progress */
       updatedAt: '1970-01-01T00:00:00.000Z'
     };
+  }
+
+  function emptyRelics(DATA) { var r = {}; (DATA.RELICS || []).forEach(function (x) { r[x.id] = { found: 0, sold: 0 }; }); return r; }
+  function cleanRelics(src, DATA) {
+    var out = emptyRelics(DATA); src = src && typeof src === 'object' ? src : {};
+    (DATA.RELICS || []).forEach(function (x) {
+      var c = src[x.id] || {}, f = clampInt(c.found, 0, x.total || 999);
+      out[x.id] = { found: f, sold: clampInt(c.sold, 0, f) };
+    });
+    return out;
   }
 
   function clampInt(v, min, max) {
@@ -66,6 +77,7 @@
       later: Array.isArray(obj.later) ? obj.later.filter(function (id, ix, a) { return known[id] && a.indexOf(id) === ix; }).slice(0, 300) : [],
       history: Array.isArray(obj.history) ? obj.history.filter(function (h) { return h && /^\d{4}-\d{2}-\d{2}$/.test(h.d) && isFinite(h.v); }).map(function (h) { return { d: h.d, v: Math.max(0, Math.min(112, +h.v)), c: Math.max(0, Math.min(999, +h.c || 0)) }; }).slice(-800) : [],
       builds: Array.isArray(obj.builds) ? obj.builds.filter(function (b) { return b && b.id && b.name; }).slice(0, 30).map(function (b) { return { id: String(b.id).slice(0, 24), name: String(b.name).slice(0, 40), charms: (Array.isArray(b.charms) ? b.charms : []).filter(function (c) { return known[c]; }).slice(0, 40) }; }) : [],
+      relics: cleanRelics(obj.relics, DATA),
       recent: Array.isArray(obj.recent) ? obj.recent.filter(function (r) { return r && known[r.id]; }).slice(0, 12) : [],
       updatedAt: obj.updatedAt || new Date().toISOString()
     };
@@ -164,6 +176,15 @@
         else h.push({ d: day, v: value, c: checked });
         if (h.length > 800) h.splice(0, h.length - 800);
         write();
+      },
+      /* relics: found / sold counters per type */
+      setRelic: function (id, field, value) {
+        var def = (DATA.RELICS || []).filter(function (x) { return x.id === id; })[0];
+        if (!def || (field !== 'found' && field !== 'sold')) return false;
+        var r = state.relics[id] = state.relics[id] || { found: 0, sold: 0 };
+        if (field === 'found') { r.found = clampInt(value, 0, def.total || 999); if (r.sold > r.found) r.sold = r.found; }
+        else r.sold = clampInt(value, 0, r.found);
+        emit('relics'); return true;
       },
       /* charm builds */
       saveBuild: function (b) {

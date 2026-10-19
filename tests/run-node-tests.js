@@ -282,5 +282,29 @@ t('builds: fit never overcharms, keeps priority order, reports missing vs no-roo
   assert.strictEqual(B.partners(['defenders-crest']).length, 3);
 });
 
+t('relics: counters clamp (sold never above found, found never above the known total), survive export/import, and a relic-only save is not pristine', () => {
+  const { s } = fresh();
+  s.setRelic('journal', 'found', 99); assert.strictEqual(s.get().relics.journal.found, 14);
+  s.setRelic('journal', 'sold', 50); assert.strictEqual(s.get().relics.journal.sold, 14);
+  s.setRelic('journal', 'found', 5); assert.deepStrictEqual(s.get().relics.journal, { found: 5, sold: 5 });
+  s.setRelic('idol', 'found', 7); assert.strictEqual(s.get().relics.idol.found, 7);          // total unknown: only capped at 999
+  assert.strictEqual(s.setRelic('nope', 'found', 1), false); assert.strictEqual(s.setRelic('seal', 'bad', 1), false);
+  const copy = St.normalize(JSON.parse(s.exportJSON()), D); assert.deepStrictEqual(copy.relics, s.get().relics);
+  assert.deepStrictEqual(St.normalize({ version: 1, relics: { seal: { found: 3, sold: 9 } } }, D).relics.seal, { found: 3, sold: 3 });
+  assert.ok(!Cloud.isPristine(s.get()));
+});
+t('relics: merging devices keeps the larger found/sold per type', () => {
+  const a = fresh().s.get(), b = fresh().s.get();
+  a.relics.seal = { found: 4, sold: 1 }; b.relics.seal = { found: 6, sold: 0 }; b.relics.journal = { found: 2, sold: 2 };
+  const m = Cloud.merge(a, b);
+  assert.deepStrictEqual(m.relics.seal, { found: 6, sold: 1 }); assert.deepStrictEqual(m.relics.journal, { found: 2, sold: 2 });
+});
+t('relics data: journals 14 @200, seals 17 @450 (wiki); King\'s Idol total and price are not invented', () => {
+  const by = {}; D.RELICS.forEach(r => { by[r.id] = r; });
+  assert.deepStrictEqual([by.journal.total, by.journal.geo, by.seal.total, by.seal.geo], [14, 200, 17, 450]);
+  assert.strictEqual(by.idol.total, null); assert.strictEqual(by.idol.geo, null);
+  D.RELICS.forEach(r => assert.ok(/^https:\/\/hollowknight\.wiki\//.test(r.src)));
+});
+
 console.log(`\n${pass}/${pass + fail} passed`);
 process.exit(fail ? 1 : 0);
