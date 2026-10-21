@@ -5,6 +5,8 @@ HTML + CSS + JavaScript vanilla. Sem build, sem backend, sem frameworks.
 
 A pergunta central que o site responde: **“O que eu faço agora?”**
 
+A página **Route** (antes Roadmap) conta a história na ordem em que ela acontece, Ato por Ato (`DATA.ACTS` em `js/data.js`): o Ato I é a estrada principal, o Ato II varre cada região (o antigo estágio "Clean-up", agora região por região), e assim por diante. A ordem é só uma recomendação: o motor continua adaptando o próximo objetivo ao que você fizer fora de ordem.
+
 ---
 
 ## Como abrir
@@ -28,6 +30,7 @@ O progresso fica salvo automaticamente no `localStorage` daquele navegador (e da
 hollow-knight-companion/
 ├── index.html              shell da aplicação (sidebar, topbar, modal)
 ├── css/style.css           visual Hallownest, temas por região, responsivo, prefers-reduced-motion
+├── css/theme.css           o visual do guia SilkSong (cabeçalho no topo, uma coluna, cartões tracejados, a Rota como um fio); só sobrescreve o style.css
 ├── js/
 │   ├── data.js             BASE DE DADOS (regiões, estágios do roadmap, 225 itens, farms, marcos da Seer)
 │   ├── guide.js            guia de bosses (HP, ataques, dicas), árvores de Essence e itens perdíveis — cada entrada com link da Wiki
@@ -42,6 +45,7 @@ hollow-knight-companion/
 │   ├── audio.js            trilha oficial por região (player embutido do Spotify)
 │   └── app.js              UI: views, trackers, Save Editor, busca, filtros, partículas
 ├── assets/icons/           favicon
+├── assets/fonts/           Gloock e Instrument Sans (SIL OFL), usadas pelo theme.css
 ├── assets/bg/              artworks do carrossel de fundo (js/bg.js, troca a cada 20 s)
 ├── tools/
 │   ├── audit.js            auditoria programática: soma oficial = 112

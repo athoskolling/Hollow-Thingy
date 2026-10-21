@@ -1,0 +1,129 @@
+/* ==========================================================================
+   theme.css: the look and layout of the SilkSong guide, in Hollow Knight colours.
+   Loaded AFTER style.css and only overrides it, so the app keeps working if this file is removed.
+   What it takes from the SilkSong guide: Gloock for titles and Instrument Sans for text (self-hosted, SIL Open
+   Font License, assets/fonts/), a top header instead of a sidebar, one centred page frame, flat plates with a
+   dashed border, big page titles, and the Route drawn as a thread with a mark for every step.
+   ========================================================================== */
+
+@font-face { font-family: Gloock; font-style: normal; font-weight: 400; font-display: swap; src: url("../assets/fonts/Gloock-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Sans"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("../assets/fonts/InstrumentSans-VF.woff2") format("woff2"); }
+
+:root {
+  --font-display: Gloock, Georgia, serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
+  --frame: 1120px;
+  --gutter: 40px;
+  /* The plate: the one surface every card uses. */
+  --plate-top: #0f1626;
+  --plate-bottom: #0a0f1b;
+  --plate-line: rgba(196, 214, 240, 0.30);
+  --plate-line-faint: rgba(196, 214, 240, 0.18);
+  --thread: #5c6f8e;
+  --next-fill: rgba(159, 210, 255, 0.07);
+  --next-line: rgba(159, 210, 255, 0.55);
+}
+body { font: 400 17px/1.55 var(--font-body); }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 400; letter-spacing: 0; }
+h3, .card h3, .card-title h3 { font: 600 1rem var(--font-body); letter-spacing: 0; }
+
+/* ---------------------------------------------------------------- page titles */
+.page-head { margin: 40px 0 28px; padding-top: 8px; }
+.view > .banner, .view > .page-head + .banner { margin-bottom: 36px; }
+.page-head h1 { font-size: clamp(40px, 6.4vw, 84px); line-height: 0.98; letter-spacing: -0.02em; margin: 0 0 14px; }
+.lead { font-style: normal; font-size: 1.1rem; max-width: 56ch; color: #c3cde0; }
+
+/* ---------------------------------------------------------------- plates (cards, banners, tiles) */
+.card, .region-card, .region-head, .banner, .kpis, .tl-body, .rt-body {
+  border: 1.5px dashed var(--plate-line);
+  border-radius: 0;
+  background: linear-gradient(180deg, var(--plate-top), var(--plate-bottom));
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.card::before, .card::after { display: none; }
+.card h3::before { display: none; }
+.card { padding: 24px 26px; }
+.btn, .icon-btn, input, select, textarea, #globalSearch { border-radius: 0; }
+.btn { font: 600 0.92rem var(--font-body); letter-spacing: 0; background: none; border: 1.5px solid rgba(231, 236, 245, 0.55); }
+.btn:hover { background: rgba(255, 255, 255, 0.06); }
+.btn-primary, .btn.btn-primary { background: #e7ecf5; color: #070a12; border-color: #e7ecf5; box-shadow: none; }
+.btn-primary:hover { background: var(--gold); border-color: var(--gold); }
+.chip { border-radius: 0; }
+#globalSearch { padding-left: 38px; background: rgba(10, 15, 27, 0.85); border: 1.5px solid var(--plate-line-faint); }
+
+/* ---------------------------------------------------------------- desktop: header on top, one frame */
+@media (min-width: 861px) {
+  :root { --sidebar: 0px; }
+  /* the sidebar becomes the header: brand on the left, the links on the right */
+  .sidebar {
+    position: relative; top: auto; bottom: auto; left: auto; width: auto; height: auto; z-index: 40;
+    flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 28px;
+    padding: 26px max(var(--gutter), calc((100% - var(--frame)) / 2 + var(--gutter))) 0;
+    background: none; border: 0; box-shadow: none;
+  }
+  .sidebar::after { display: none; }
+  .brand-orn { flex-direction: column; align-items: flex-start; gap: 4px; padding: 0; }
+  .brand-orn .orn { display: none; }
+  .brand-orn .bt1 { font: 400 1.6rem/1 var(--font-display); letter-spacing: 0; margin: 0; text-shadow: none; text-transform: none; }
+  .brand-orn .bt2 { font: 500 0.78rem var(--font-body); letter-spacing: 0.16em; color: var(--muted); }
+  .nav-links { flex: 0 1 auto; display: flex; flex-wrap: wrap; gap: 2px 2px; overflow: visible; padding: 0; }
+  .sidebar a[data-nav] { padding: 8px 8px; gap: 0; font-size: 0.92rem; color: #c3cde0; border-bottom: 2px solid transparent; }
+  .sidebar a[data-nav] .ni { display: none; }
+  .sidebar a[data-nav]:hover { background: none; color: var(--white); }
+  .sidebar a[data-nav].active { background: none; color: var(--white); border-bottom-color: var(--accent); }
+  .sidebar a[data-nav].active::before { display: none; }
+  .nav-foot { display: none; }
+
+  .topbar {
+    position: relative; margin: 0; height: auto; padding: 18px max(var(--gutter), calc((100% - var(--frame)) / 2 + var(--gutter))) 0;
+    background: none; justify-content: flex-end;
+  }
+  .view, .view:has(> .dash) {
+    margin: 0 auto; max-width: var(--frame); padding: 0 var(--gutter) 120px;
+  }
+  /* the music player floats in the bottom-right corner instead of living in the sidebar */
+  .player { left: auto; right: 16px; bottom: 16px; width: min(330px, 92vw); border: 1.5px dashed var(--plate-line); border-radius: 0; }
+}
+
+/* ---------------------------------------------------------------- phone: keep the drawer, take the look */
+@media (max-width: 860px) {
+  .page-head { margin: 22px 0 20px; }
+  .page-head h1 { font-size: clamp(36px, 11vw, 52px); }
+  .card { padding: 18px; }
+}
+
+/* ---------------------------------------------------------------- the footer (data credit) */
+.site-footer { max-width: var(--frame); margin: 0 auto; padding: 0 var(--gutter) 110px; color: var(--muted); font-size: 0.88rem; position: relative; z-index: 1; }
+@media (max-width: 860px) { .site-footer { padding: 0 14px 110px; } }
+
+/* ---------------------------------------------------------------- the Route (roadmap page) */
+.rt-act { margin: 0 0 44px; }
+.rt-act-head { margin: 0 0 18px; }
+.rt-act-head h2 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.05; margin: 0 0 6px; }
+.rt-act-head p { margin: 0; max-width: 62ch; }
+.route { list-style: none; margin: 0; padding: 0; position: relative; }
+/* the thread runs down the left, behind the marks */
+.route::before { content: ''; position: absolute; left: 17px; top: 14px; bottom: 14px; width: 0; border-left: 2px solid var(--thread); }
+.rt-note { padding: 0 0 12px 54px; }
+.rt-step { position: relative; display: flex; gap: 18px; padding: 8px 0; }
+.rt-mark {
+  flex: none; position: relative; z-index: 1; width: 36px; height: 36px; margin-top: 12px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid var(--thread); background: #070a12; color: var(--muted); font: 600 0.85rem var(--font-body);
+}
+.rt-step.st-complete .rt-mark { background: var(--gold); border-color: var(--gold); color: #070a12; }
+.rt-step.st-current .rt-mark { border-color: var(--accent); color: var(--white); box-shadow: 0 0 0 4px #070a12, 0 0 0 6px var(--accent); }
+.rt-body { flex: 1; min-width: 0; padding: 16px 20px; }
+.rt-step.st-current .rt-body { border-color: var(--next-line); background: var(--next-fill); }
+.rt-step.st-complete .rt-body { opacity: 0.78; }
+.rt-body h3 { margin: 0 0 8px; font: 600 1.05rem/1.3 var(--font-body); overflow-wrap: anywhere; }
+.rt-meta { margin-left: 8px; font-weight: 500; font-size: 0.85rem; color: var(--muted); }
+.rt-links { margin: 10px 0 0; font-size: 0.92rem; }
+.rt-more summary { cursor: pointer; color: var(--accent); font-size: 0.92rem; margin-bottom: 8px; }
+.rt-beyond .rt-mark { border-style: dashed; }
+@media (max-width: 560px) { .rt-step { gap: 12px; } .rt-note { padding-left: 48px; } .rt-body { padding: 14px; } }
+
+/* one width for everything on a page: the frame (style.css limited some blocks to 980px) */
+.view > * { max-width: none; }
+.view > .page-head .lead { max-width: 56ch; }

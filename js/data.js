@@ -106,6 +106,25 @@
   ];
 
   /* ------------------------------------------------------------------ */
+  /* ACTS — the story, in the order it is told and followed              */
+  /* ------------------------------------------------------------------ */
+  // The roadmap page groups STAGES into Acts. An Act is only a heading: the engine still follows STAGES and the
+  // items' own requirements, so nothing here blocks anything. The "Clean-up" stage (the many items that are not
+  // on the main road) is shown region by region, in the order of REGIONS, as the chapters of Act II.
+  var ACTS = [
+    { id: 'act-1', title: 'Act I — The road down', lead: 'The abilities and spells that open Hallownest, one place after another.',
+      stages: ['s-start', 's-city', 's-peak', 's-rest', 's-water', 's-basin', 's-spells', 's-edge', 's-abyss'] },
+    { id: 'act-2', title: 'Act II — Sweeping Hallownest', lead: 'Everything the road left behind: Nail, Masks, Vessels, Charms and Essence, region by region.',
+      stages: ['s-cleanup'] },
+    { id: 'act-3', title: 'Act III — The Dreamers and the Hollow Knight', lead: 'Wake the way to the Black Egg, face the Hollow Knight, and go on to the other endings.',
+      stages: ['s-dreamers', 's-thk', 's-kingsoul', 's-endings'] },
+    { id: 'act-4', title: 'Act IV — Troupes, trials and Godhome', lead: 'The optional content that comes after the story.',
+      stages: ['s-grimm', 's-colo', 's-godhome'] },
+    { id: 'act-5', title: 'Completion', lead: 'The 112% mark, and what lies beyond it.',
+      stages: ['s-112', 's-beyond'] }
+  ];
+
+  /* ------------------------------------------------------------------ */
   /* ITEMS                                                               */
   /* ------------------------------------------------------------------ */
   var ITEMS = [];
@@ -446,7 +465,7 @@
   db('failed-champion', 'Failed Champion', 'forgotten-crossroads', 300, { req: ['false-knight'], loc: "False Knight's arena (Forgotten Crossroads).", how: "Dream Nail the False Knight's corpse.", save: { pd: 'falseKnightDreamDefeated' } });
   db('soul-tyrant', 'Soul Tyrant', 'city-of-tears', 300, { req: ['soul-master'], loc: 'Soul Sanctum (City of Tears).', how: "Dream Nail Soul Master's corpse.", save: { pd: 'mageLordDreamDefeated' } });
   db('lost-kin', 'Lost Kin', 'ancient-basin', 400, { req: ['broken-vessel'], loc: "Broken Vessel's arena (Ancient Basin).", how: "Dream Nail Broken Vessel's corpse.", save: { pd: 'infectedKnightDreamDefeated' } });
-  db('white-defender', 'White Defender', 'royal-waterways', 300, { req: ['dung-defender', 'herrah', 'lurien', 'monomon'], loc: "Hidden room below the far right of the Dung Defender's arena.", how: 'After all 3 Dreamers: drop through the floor under the floating platform and Dream Nail the sleeping Dung Defender.', save: { pd: 'whiteDefenderDefeated' } });
+  db('white-defender', 'White Defender', 'royal-waterways', 300, { stage: 's-dreamers', req: ['dung-defender', 'herrah', 'lurien', 'monomon'], loc: "Hidden room below the far right of the Dung Defender's arena.", how: 'After all 3 Dreamers: drop through the floor under the floating platform and Dream Nail the sleeping Dung Defender.', save: { pd: 'whiteDefenderDefeated' } });
   db('grey-prince-zote', 'Grey Prince Zote', 'dirtmouth', 300, { req: ['bretta-rescued', 'monarch-wings'], loc: "Bretta's basement (Dirtmouth).", how: 'Rescue Bretta and Zote, defeat Zote in the Colosseum, open the basement (Monarch Wings) and Dream Nail the statue.', save: { pd: 'greyPrinceDefeated' } });
 
   /* ---------- WHISPERING ROOTS (15 = 482 Essence) ---------- */
@@ -663,7 +682,7 @@
   ];
 
   var DATA = {
-    version: 1, RELICS: RELICS, REGIONS: REGIONS, STAGES: STAGES, ITEMS: ITEMS, FARMS: FARMS,
+    version: 1, RELICS: RELICS, REGIONS: REGIONS, STAGES: STAGES, ACTS: ACTS, ITEMS: ITEMS, FARMS: FARMS,
     SEER_MILESTONES: SEER_MILESTONES, OFFICIAL_BREAKDOWN: OFFICIAL_BREAKDOWN, auditCategory: auditCategory,
     DIFF_LABELS: DIFF_LABELS, REGION_GUIDE: REGION_GUIDE, BOSS_DIFF: BOSS_DIFF, ITEM_REC: ITEM_REC,
     TOTAL_ESSENCE_ONE_TIME: 3208, GRUBS_TOTAL: 46

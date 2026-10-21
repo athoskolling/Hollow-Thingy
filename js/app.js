@@ -319,7 +319,7 @@
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
       '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a> <a class="link-more" href="' + MG_URL + '" target="_blank" rel="noopener noreferrer">MapGenie ↗</a></section>';
     var up = routeList(4);
-    h += '<section class="card"><div class="card-title"><h3>' + ico('route') + ' Up next</h3><a class="link-more" href="#/roadmap">Roadmap →</a></div>' +
+    h += '<section class="card"><div class="card-title"><h3>' + ico('route') + ' Up next</h3><a class="link-more" href="#/roadmap">Route →</a></div>' +
       (up.length ? '<ol class="upnext">' + up.map(function (g, i) { return '<li' + (i === 0 ? ' class="now"' : '') + '><button data-action="open-item" data-id="' + g.id + '"><b>' + esc(g.name) + '</b><small>' + esc(shortRegion(g.region)) + '</small></button></li>'; }).join('') + '</ol>' : '<p class="muted">The main route is complete.</p>') + '</section>';
     h += '</div>';
     // regions at a glance
@@ -357,28 +357,62 @@
     }).join('') + '</ol>';
   }
 
-  views.roadmap = function () {
-    var h = '<header class="page-head"><h1>Roadmap</h1><p class="lead">Recommended order — never mandatory. It adapts to anything you do out of order.</p></header>';
-    h += voidHeartBanner(true);
-    h += '<ol class="timeline">';
-    E.stageStatus().forEach(function (x, idx) {
-      if (x.stage.id === 's-beyond') h += '</ol><h2 class="beyond-title">BEYOND 112%</h2><ol class="timeline beyond">';
-      var goals = x.stage.id === 's-cleanup' ? [] : x.stage.id === 's-beyond' ? DATA.ITEMS.filter(function (i) { return i.stage === 's-beyond'; }) : x.goals;
-      h += '<li class="tl st-' + x.status + '"><div class="tl-dot">' + (x.status === 'complete' ? '✓' : x.status === 'current' ? '→' : '○') + '</div><div class="tl-body">' +
-        '<h3>' + esc(x.stage.title) + ' <span class="muted small">' + (x.total ? x.done + '/' + x.total : '') + '</span></h3>';
-      if (x.stage.id === 's-cleanup') {
-        var b = E.completionBreakdown();
-        h += '<p class="muted small">Masks ' + b['Mask Shards'].got + '/4 · Vessels ' + b['Vessel Fragments'].got + '/3 · Nail ' + b['Nail Upgrades'].got + '/4 · Nail Arts ' + b['Nail Arts'].got + '/3 · Charms ' + b['Charms (base)'].got + '/36 · Warrior Dreams ' + b['Warrior Dreams'].got + '/7 · Bosses ' + b['Bosses'].got + '/14</p>' +
-          '<a class="btn small" href="#/checklist">Open checklist</a>';
-      } else if (x.stage.id === 's-112') {
-        h += '<p>' + E.completion().value + ' / 112%</p>';
-      } else {
-        h += '<div class="chips">' + goals.map(function (g) { return chip(g.id); }).join(' ') + '</div>';
-      }
-      if (x.stage.id === 's-kingsoul') h += voidHeartBanner(true);
-      h += '</div></li>';
+  /* The Route: the game's story told in order, Act by Act (DATA.ACTS), each Act a list of numbered steps.
+     The engine decides what is "next" (adapting to anything done out of order); this page only lays the story out.
+     Act II (the Clean-up stage) is shown region by region, in the order of the regions. */
+  function routeStepHtml(n, status, title, meta, body, extraClass) {
+    var mark = status === 'complete' ? '✓' : status === 'current' ? '→' : n;
+    return '<li class="rt-step st-' + status + (extraClass ? ' ' + extraClass : '') + '"><div class="rt-mark" aria-hidden="true">' + mark + '</div><div class="rt-body">' +
+      '<h3>' + title + (meta ? ' <span class="rt-meta">' + meta + '</span>' : '') + '</h3>' + body + '</div></li>';
+  }
+  function chipsHtml(list) { return '<div class="chips">' + list.map(function (g) { return chip(g.id); }).join(' ') + '</div>'; }
+  function cleanupChapters(stageState) {
+    var imp = E.impliedSet();
+    var chapters = DATA.REGIONS.map(function (r) {
+      var items = DATA.ITEMS.filter(function (i) { return i.stage === 's-cleanup' && i.region === r.id && !i.optional && !i.derived && !i.beyond; });
+      var done = items.filter(function (i) { return E.isDone(i.id) || E.isImplied(i.id) || (i.excludes && i.excludes.some(E.isDone)); }).length;
+      return { region: r, items: items, done: done, complete: items.length > 0 && done === items.length };
+    }).filter(function (c) { return c.items.length; });
+    var currentFound = false;
+    chapters.forEach(function (c) {
+      c.status = c.complete ? 'complete' : (stageState === 'current' && !currentFound ? 'current' : 'future');
+      if (!c.complete && c.status === 'current') currentFound = true;
     });
-    h += '</ol>';
+    return chapters;
+  }
+  views.roadmap = function () {
+    var states = {};
+    E.stageStatus().forEach(function (x) { states[x.stage.id] = x; });
+    var h = '<header class="page-head"><h1>Route</h1><p class="lead">The story of Hallownest in the order it is told, Act by Act. Recommended, never mandatory: it adapts to anything you do out of order.</p></header>';
+    h += voidHeartBanner(true);
+    var n = 0;
+    DATA.ACTS.forEach(function (act) {
+      h += '<section class="rt-act' + (act.id === 'act-5' ? ' rt-beyond' : '') + '"><header class="rt-act-head"><h2>' + esc(act.title) + '</h2><p class="muted">' + esc(act.lead) + '</p></header><ol class="route">';
+      act.stages.forEach(function (sid) {
+        var x = states[sid]; if (!x) return;
+        var st = x.stage;
+        if (sid === 's-cleanup') {
+          var b = E.completionBreakdown();
+          h += '<li class="rt-note"><p class="muted small">Masks ' + b['Mask Shards'].got + '/4 · Vessels ' + b['Vessel Fragments'].got + '/3 · Nail ' + b['Nail Upgrades'].got + '/4 · Nail Arts ' + b['Nail Arts'].got + '/3 · Charms ' + b['Charms (base)'].got + '. <a href="#/checklist">Open the checklist</a></p></li>';
+          cleanupChapters(x.status).forEach(function (c) {
+            n += 1;
+            h += routeStepHtml(n, c.status, esc(c.region.name), c.done + '/' + c.items.length,
+              '<details class="rt-more"' + (c.status === 'current' ? ' open' : '') + '><summary>' + (c.complete ? 'All done' : (c.items.length - c.done) + ' left') + '</summary>' + chipsHtml(c.items) + '</details>' +
+              '<p class="rt-links"><a href="#/region/' + c.region.id + '">Open ' + esc(c.region.name) + '</a></p>');
+          });
+          return;
+        }
+        n += 1;
+        var goals = sid === 's-beyond' ? DATA.ITEMS.filter(function (i) { return i.stage === 's-beyond'; }) : x.goals;
+        var body = '';
+        if (sid === 's-112') body = '<p>' + E.completion().value + ' / 112%</p>';
+        else body = chipsHtml(goals);
+        if (sid === 's-kingsoul') body += voidHeartBanner(true);
+        if (st.region) body += '<p class="rt-links"><a href="#/region/' + st.region + '">Open ' + esc(regionName(st.region)) + '</a></p>';
+        h += routeStepHtml(n, x.status, esc(st.title), x.total ? x.done + '/' + x.total : '', body);
+      });
+      h += '</ol></section>';
+    });
     return h;
   };
 

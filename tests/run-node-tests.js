@@ -46,6 +46,16 @@ t('Void Heart never recommended before THK, even when everything else is done', 
   assert.ok(!E.isVoidHeartLocked());
 });
 t('ending order: THK stage before Kingsoul stage', () => assert.ok(D.STAGES.findIndex(x => x.id === 's-thk') < D.STAGES.findIndex(x => x.id === 's-kingsoul')));
+t('story order: the Acts list every stage once, in the same order as the stages', () => {
+  assert.deepStrictEqual(D.ACTS.flatMap(a => a.stages), D.STAGES.map(x => x.id));
+});
+t('story order: no item needs an item that belongs to a later stage', () => {
+  const idx = {}; D.STAGES.forEach((x, k) => { idx[x.id] = k; });
+  const byId = {}; D.ITEMS.forEach(i => { byId[i.id] = i; });
+  const bad = [];
+  D.ITEMS.forEach(i => (i.req || []).forEach(r => { const q = byId[r]; if (q && idx[q.stage] > idx[i.stage]) bad.push(i.id + ' needs ' + r); }));
+  assert.deepStrictEqual(bad, []);
+});
 t('full completion reaches 112 (with NKG path)', () => {
   const { s, E } = fresh();
   const all = {}; D.ITEMS.forEach(i => { if (!i.derived) all[i.id] = true; }); all['banishment'] = false; all['carefree-melody'] = false;
