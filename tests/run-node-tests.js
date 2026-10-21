@@ -46,6 +46,36 @@ t('Void Heart never recommended before THK, even when everything else is done', 
   assert.ok(!E.isVoidHeartLocked());
 });
 t('ending order: THK stage before Kingsoul stage', () => assert.ok(D.STAGES.findIndex(x => x.id === 's-thk') < D.STAGES.findIndex(x => x.id === 's-kingsoul')));
+t('grubs: 46 are listed, ids are unique, every Region and every need exists', () => {
+  assert.strictEqual(D.GRUBS.length, 46);
+  assert.strictEqual(D.GRUBS_TOTAL, 46);
+  assert.strictEqual(new Set(D.GRUBS.map(g => g.id)).size, 46);
+  const regions = new Set(D.REGIONS.map(r => r.id)), items = new Set(D.ITEMS.map(x => x.id));
+  D.GRUBS.forEach(g => {
+    assert.ok(regions.has(g.region), g.id + ' region');
+    g.needs.forEach(n => assert.ok(items.has(n), g.id + ' needs ' + n));
+    assert.ok(g.where && g.where.length <= 200, g.id + ' where');
+    assert.ok(['high', 'medium', 'low'].includes(g.confidence), g.id + ' confidence');
+  });
+});
+t('grubs: ticking a Grub sets the Grubs number, unticking lowers it, an unknown id is ignored', () => {
+  const { s } = fresh(); const [a, b] = D.GRUBS;
+  assert.strictEqual(s.setGrub(a.id, true), true);
+  assert.strictEqual(s.get().resources.grubs, 1);
+  s.setGrub(b.id, true); assert.strictEqual(s.get().resources.grubs, 2);
+  assert.strictEqual(s.setGrub(a.id, true), false);
+  s.setGrub(a.id, false); assert.strictEqual(s.get().resources.grubs, 1);
+  assert.strictEqual(s.setGrub('grub-nowhere-1', true), false);
+  assert.deepStrictEqual(Object.keys(s.get().grubs), [b.id]);
+});
+t('grubs: an export/import round trip keeps the ticks; unknown ids are dropped; the number is never below the ticks', () => {
+  const { s } = fresh(); s.setGrub(D.GRUBS[0].id, true); s.setGrub(D.GRUBS[5].id, true);
+  const copy = JSON.parse(s.exportJSON());
+  copy.grubs['grub-made-up-1'] = true; copy.resources.grubs = 0;
+  const n = St.normalize(copy, D);
+  assert.deepStrictEqual(Object.keys(n.grubs).sort(), [D.GRUBS[0].id, D.GRUBS[5].id].sort());
+  assert.strictEqual(n.resources.grubs, 2);
+});
 t('story order: the Acts list every stage once, in the same order as the stages', () => {
   assert.deepStrictEqual(D.ACTS.flatMap(a => a.stages), D.STAGES.map(x => x.id));
 });

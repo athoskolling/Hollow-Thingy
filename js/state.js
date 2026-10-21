@@ -12,6 +12,7 @@
     return {
       version: VERSION,
       checks: {},
+      grubs: {},
       resources: { geo: 0, essence: 0, grubs: 0 },
       currentRegion: 'dirtmouth',
       settings: { spoilers: false, compact: false, hideOptional: false, hideDone: false },
@@ -60,14 +61,19 @@
     var checks = {};
     var src = obj.checks || {};
     Object.keys(src).forEach(function (k) { if (known[k] && src[k] === true) checks[k] = true; });
+    var knownGrub = {};
+    (DATA.GRUBS || []).forEach(function (g) { knownGrub[g.id] = true; });
+    var grubs = {};
+    Object.keys(obj.grubs || {}).forEach(function (k) { if (knownGrub[k] && obj.grubs[k] === true) grubs[k] = true; });
     var res = obj.resources || {};
     var st = {
       version: VERSION,
       checks: checks,
+      grubs: grubs,
       resources: {
         geo: clampInt(res.geo, 0, 9999999),
         essence: clampInt(res.essence, 0, 99999),
-        grubs: clampInt(res.grubs, 0, DATA.GRUBS_TOTAL)
+        grubs: Math.max(clampInt(res.grubs, 0, DATA.GRUBS_TOTAL), Object.keys(grubs).length)
       },
       currentRegion: DATA.REGIONS.some(function (r) { return r.id === obj.currentRegion; }) ? obj.currentRegion : base.currentRegion,
       settings: Object.assign({}, base.settings, obj.settings || {}),
@@ -156,6 +162,15 @@
         var max = key === 'grubs' ? DATA.GRUBS_TOTAL : 9999999;
         state.resources[key] = clampInt(value, 0, max);
         emit('resource');
+      },
+      /** Tick or untick one Grub. The plain Grubs number follows the ticks (it is what the rest of the app reads). */
+      setGrub: function (id, value) {
+        if (!(DATA.GRUBS || []).some(function (g) { return g.id === id; })) return false;
+        value = !!value;
+        if (!!state.grubs[id] === value) return false;
+        if (value) state.grubs[id] = true; else delete state.grubs[id];
+        state.resources.grubs = Math.min(DATA.GRUBS_TOTAL, Object.keys(state.grubs).length);
+        emit('grub'); return true;
       },
       setRegion: function (id) { if (DATA.REGIONS.some(function (r) { return r.id === id; })) { state.currentRegion = id; emit('region'); } },
       setSetting: function (key, value) { state.settings[key] = value; emit('settings'); },

@@ -127,3 +127,18 @@ h3, .card h3, .card-title h3 { font: 600 1rem var(--font-body); letter-spacing: 
 /* one width for everything on a page: the frame (style.css limited some blocks to 980px) */
 .view > * { max-width: none; }
 .view > .page-head .lead { max-width: 56ch; }
+
+/* ---------------------------------------------------------------- the Grub tracker (Trackers > Grubs) */
+.gr-head .gr-count { margin: 4px 0 10px; font: 400 clamp(34px, 5vw, 56px)/1 var(--font-display); }
+.gr-head .gr-count .muted { font: 500 1rem var(--font-body); }
+.gr-head .bar { height: 6px; border-radius: 0; margin: 0 0 16px; }
+.gr-head .bar span { box-shadow: none; }
+.gr-marks { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 18px; }
+.gr-marks li { display: flex; gap: 10px; align-items: baseline; color: var(--muted); }
+.gr-marks li b { font: 400 1.4rem/1 var(--font-display); color: var(--white); min-width: 2ch; }
+.gr-marks li.ok { color: var(--ok); }
+.gr-tools { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 4px 0 10px; }
+.gr-list { display: grid; gap: 0; }
+.gr-row { align-items: flex-start; }
+.gr-row .rr-main small { display: block; }
+.gr-needs, .gr-note { display: block; margin-top: 4px; }

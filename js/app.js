@@ -10,7 +10,7 @@
   var byId = E.byId;
   var view = document.getElementById('view');
   var expanded = {};             // expanded item rows (UI only)
-  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false, mgFrame: false };
+  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false, mgFrame: false, grubsHideDone: false, grubsReachable: false };
   var music = null;               // region soundtrack player (audio.js)
   var sync = null;                // optional sync between devices (sync.js — Gist, legacy)
   var cloud = null;               // optional account login + live cloud sync (cloud.js — Firebase)
@@ -180,7 +180,7 @@
         mini('✦', 'Charms', E.charmCount() + '/40 <small>· ' + E.notches() + ' notches</small>', '#/trackers/charms') +
         mini('✧', 'Essence', fmt(s.resources.essence) + '/2400', '#/trackers/essence') +
         mini('◆', 'Geo', fmt(s.resources.geo), '#/trackers/geo') +
-        mini('◌', 'Grubs', s.resources.grubs + '/46', '#/trackers/essence') +
+        mini('◌', 'Grubs', s.resources.grubs + '/46', '#/trackers/grubs') +
       '</div></div>';
   }
   function mini(icon, label, value, href) { return '<a class="mini" href="' + href + '"><span class="mi">' + icon + '</span><span class="ml">' + label + '</span><span class="mv">' + value + '</span></a>'; }
@@ -539,6 +539,7 @@
     if (todo.length) h += '<section class="card"><h3>To do here</h3>' + itemList(todo) + '</section>';
     if (id === 'the-abyss' || id === 'queens-gardens' || id === 'white-palace') h += voidHeartBanner(true);
     if (id === 'forgotten-crossroads' || id === 'dirtmouth') h += '<div class="banner"><strong>◌ Grubs: ' + st().resources.grubs + '/46</strong><span>Grubfather rewards: 5 → Mask Shard · 10 → Grubsong · 31 → Pale Ore · 46 → Grubberfly\'s Elegy. Per-grub locations: <a href="https://hollowknight.wiki/w/Grubs" target="_blank" rel="noopener">Wiki ↗</a></span></div>';
+    h += grubsCard(id);
     var used = {};
     REGION_GROUPS.forEach(function (g) {
       var list = items.filter(function (i) { return !used[i.id] && g[1](i); });
@@ -670,7 +671,7 @@
 
   /* ------------------------------ trackers ------------------------------ */
   function trackerTabs(active) {
-    var tabs = [['geo', 'Geo'], ['abilities', 'Movement & Spells'], ['keys', 'Keys'], ['nail', 'Nail & Ore'], ['relics', 'Relics'], ['masks', 'Masks & Vessels'], ['charms', 'Charms'], ['nailarts', 'Nail Arts'], ['essence', 'Essence'],
+    var tabs = [['geo', 'Geo'], ['abilities', 'Movement & Spells'], ['keys', 'Keys'], ['nail', 'Nail & Ore'], ['relics', 'Relics'], ['masks', 'Masks & Vessels'], ['charms', 'Charms'], ['nailarts', 'Nail Arts'], ['essence', 'Essence'], ['grubs', 'Grubs'],
       ['bosses', 'Bosses'], ['guide', 'Boss guide'], ['endings', 'Dreamers & Endings'], ['grimm', 'Grimm Troupe'], ['colosseum', 'Colosseum'], ['godhome', 'Godhome']];
     return '<div class="tabs" role="tablist">' + tabs.map(function (t) { return '<a role="tab" class="tab' + (t[0] === active ? ' on' : '') + '" href="#/trackers/' + t[0] + '">' + t[1] + '</a>'; }).join('') + '</div>';
   }
@@ -723,6 +724,51 @@
       return '<li class="bt-miss">' + '<input type="checkbox" class="chk" data-action="toggle" data-id="' + i.id + '" aria-label="Mark ' + esc(i.name) + ' as found"> ' + whereLine(i).replace(/^<li class="bt-miss">/, '').replace(/<\/li>$/, '') + '</li>'; }).join('') + '</ul>' : '<p class="pos small">All 6 Pale Ore found.</p>';
     if (oreDone.length) h += '<details class="obj-how"><summary>' + oreDone.length + ' found</summary>' + itemList(oreDone, { showRegion: true }) + '</details>';
     h += '<p class="muted small">Tick each one when you pick it up. The nail upgrades use 1 + 2 + 3 = 6 Pale Ore in total.</p></section>';
+    return h;
+  };
+  /* One Grub row, shared by the Grub tracker and the Region page. */
+  function grubReach(g) { return g.needs.every(function (id) { return E.isDone(id) || E.isImplied(id); }); }
+  function grubRowHtml(g) {
+    var ticked = (st().grubs || {})[g.id] === true, r = E.regionById[g.region];
+    return '<div class="rrow gr-row' + (ticked ? ' done' : '') + '"><input type="checkbox" class="chk" data-action="grub-toggle" data-id="' + g.id + '"' + (ticked ? ' checked' : '') + ' aria-label="Grub ' + g.n + ' in ' + esc(r ? r.name : g.region) + ' rescued">' +
+      '<div class="rr-main static"><b>Grub ' + g.n + '</b><small>' + esc(g.where) + '</small>' +
+      (g.needs.length ? '<span class="gr-needs">Needs: ' + g.needs.map(function (id) { return chip(id); }).join(' ') + '</span>' : '') +
+      (g.confidence !== 'high' ? '<span class="gr-note small muted">' + (g.confidence === 'low' ? 'Check this one: guides disagree.' : 'Not confirmed by every guide.') + (g.note ? ' ' + esc(g.note) : '') + '</span>' : '') + '</div>' +
+      (ticked ? '' : grubReach(g) ? '<span class="badge">reachable</span>' : '<span class="badge muted">locked</span>') + '</div>';
+  }
+  function grubsCard(regionId) {
+    var list = (DATA.GRUBS || []).filter(function (g) { return g.region === regionId; }); if (!list.length) return '';
+    var got = list.filter(function (g) { return (st().grubs || {})[g.id]; }).length;
+    return '<section class="card"><h3>◌ Grubs here <span class="muted small">' + got + '/' + list.length + '</span></h3><div class="gr-list">' + list.map(grubRowHtml).join('') + '</div>' +
+      '<p class="small"><a href="#/trackers/grubs">All 46 Grubs →</a></p></section>';
+  }
+  /* The Grub tracker: all 46 Grubs, region by region, each with where it is and what it needs. */
+  trackers.grubs = function () {
+    var s = st(), G = DATA.GRUBS || [], ticked = s.grubs || {}, total = DATA.GRUBS_TOTAL;
+    var rescued = G.filter(function (g) { return ticked[g.id]; }).length;
+    var number = s.resources.grubs;
+    var marks = DATA.ITEMS.filter(function (i) { return i.soft && i.soft.grubs; }).sort(function (a, b) { return a.soft.grubs - b.soft.grubs; });
+    var h = '<section class="card gr-head"><h3>◌ Grubs</h3><p class="gr-count"><b>' + number + '</b><span class="muted"> / ' + total + ' rescued</span></p>' +
+      '<div class="bar"><span style="width:' + Math.round(100 * number / total) + '%"></span></div>';
+    h += '<ul class="gr-marks">' + marks.map(function (i) {
+      var ok = number >= i.soft.grubs;
+      var nm = i.name.replace(/ — .*$/, ''), ty = TYPE_LABEL[i.type] || i.type;
+      return '<li class="' + (ok ? 'ok' : '') + '"><b>' + i.soft.grubs + '</b> ' + (ok ? '✓' : '') + ' <span>' + esc(nm) + (ty.toLowerCase() === nm.toLowerCase() ? '' : ' <span class="muted small">' + esc(ty) + '</span>') + '</span></li>';
+    }).join('') + '</ul>';
+    if (G.length && number !== rescued) h += '<p class="small gold">The number above (' + number + ') differs from the Grubs ticked below (' + rescued + '), because it was typed or imported. Ticking a Grub sets the number to the ticks.</p>';
+    h += '<div class="gr-tools"><label class="toggle"><input type="checkbox" data-action="grub-filter" data-f="grubsHideDone"' + (ui.grubsHideDone ? ' checked' : '') + '> Hide rescued</label>' +
+      '<label class="toggle"><input type="checkbox" data-action="grub-filter" data-f="grubsReachable"' + (ui.grubsReachable ? ' checked' : '') + '> Only the ones I can reach now</label></div>';
+    h += '<details class="obj-how"><summary>Set the number by hand</summary>' + resInput('grubs', 'Grubs rescued', number, total) + '</details></section>';
+    if (!G.length) return h + '<section class="card"><p class="muted">The list of the 46 Grubs is not loaded.</p></section>';
+    var any = false;
+    DATA.REGIONS.forEach(function (r) {
+      var list = G.filter(function (g) { return g.region === r.id; }); if (!list.length) return;
+      var got = list.filter(function (g) { return ticked[g.id]; }).length;
+      var shown = list.filter(function (g) { return !(ui.grubsHideDone && ticked[g.id]) && !(ui.grubsReachable && !grubReach(g)); });
+      if (!shown.length) return; any = true;
+      h += '<section class="card"><h3><a href="#/region/' + r.id + '">' + esc(r.name) + '</a> <span class="muted small">' + got + '/' + list.length + '</span></h3><div class="gr-list">' + shown.map(grubRowHtml).join('') + '</div></section>';
+    });
+    if (!any) h += '<section class="card"><p class="pos">Nothing left to show with these filters.</p></section>';
     return h;
   };
   trackers.relics = function () {
@@ -1674,6 +1720,8 @@
       store.setCheck(id, t.checked);
       if (t.checked) toast('✓ ' + it.name + (it.completion ? ' (+' + it.completion + '%)' : ''), 'ok');
     }
+    if (a === 'grub-toggle') store.setGrub(id, t.checked);
+    if (a === 'grub-filter') { ui[t.getAttribute('data-f')] = t.checked; render(true); }
     if (a === 'res') store.setResource(t.getAttribute('data-key'), t.value);
     if (a === 'relic') store.setRelic(t.getAttribute('data-id'), t.getAttribute('data-field'), t.value);
     if (a === 'region') { store.setRegion(t.value); }
