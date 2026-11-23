@@ -150,7 +150,7 @@
       var tg = mount.querySelector('.pl-toggle'); if (tg) tg.innerHTML = I.svg(playing ? 'pause' : 'play');
       var vol = mount.querySelector('.pl-vol'); if (vol && document.activeElement !== vol) vol.value = music().volume == null ? 0.4 : music().volume;
       titleEl.textContent = regionName(r);
-      subEl.textContent = '♫ ' + t.title + (playing ? ' · playing' : '');
+      subEl.textContent = t.title + (playing ? ' · playing' : '');
       subEl.title = t.note;
       mount.querySelector('.pl-follow').classList.toggle('on', follow());
       mount.querySelector('.pl-follow').setAttribute('aria-pressed', String(follow()));
