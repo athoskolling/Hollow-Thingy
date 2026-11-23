@@ -10,7 +10,7 @@
   var byId = E.byId;
   var view = document.getElementById('view');
   var expanded = {};             // expanded item rows (UI only)
-  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false, mgFrame: false, grubsHideDone: false, grubsReachable: false };
+  var ui = { filter: 'all', query: '', trackerTab: 'geo', pendingImport: null, pendingSlot: null, panelRegion: null, regionTab: 'overview', panelAll: false, mgFrame: false, grubsHideDone: false, grubsReachable: false, routeHideDone: false, regionFilter: 'all', regionExpandAll: false, chkExpandAll: false };
   var music = null;               // region soundtrack player (audio.js)
   var sync = null;                // optional sync between devices (sync.js — Gist, legacy)
   var cloud = null;               // optional account login + live cloud sync (cloud.js — Firebase)
@@ -278,8 +278,9 @@
   }
   views.dashboard = function () {
     var s = st(), nxt = E.nextObjective(), h = '', c = E.completion(), cl = E.checklist(), cur = s.currentRegion;
+    var sh = E.shards(), v = E.vessels(), o = E.ore();
     h += '<div class="now">';
-    h += '<p class="greet">Welcome back, little Knight.' + (store.profiles.list().length > 1 ? ' <a class="badge" href="#/settings">Save: ' + esc((store.profiles.list().filter(function (p) { return p.id === store.profiles.active(); })[0] || {}).name || '') + '</a>' : '') + (st().later.length ? ' <a class="badge" href="#/plan/later">🕒 ' + st().later.length + ' to come back to</a>' : '') + '</p>';
+    h += '<div class="dash-top-row"><p class="greet">Welcome back, little Knight.' + (store.profiles.list().length > 1 ? ' <a class="badge" href="#/settings">Save: ' + esc((store.profiles.list().filter(function (p) { return p.id === store.profiles.active(); })[0] || {}).name || '') + '</a>' : '') + (st().later.length ? ' <a class="badge" href="#/plan/later">🕒 ' + st().later.length + ' to come back to</a>' : '') + '</p></div>';
     // alerts (only when relevant)
     h += voidHeartBanner(true);
     if (E.isDone('black-egg')) h += '<div class="banner gold compact"><strong>🔓 BLACK EGG OPEN</strong>' + (E.isDone('ending-thk') ? '<span>All three Dreamers are sealed away.</span>' : '<span>⚠️ FAÇA O FINAL BÁSICO ANTES DO VOID HEART.</span>') + '</div>';
@@ -291,25 +292,36 @@
       h += '<p class="eyebrow">Next objective</p><h2 class="obj-name">Nothing left on the route 🎉</h2><p class="muted">See <a href="#/trackers/godhome">Beyond 112%</a>.</p>';
     } else {
       var it = nxt.item, away = it.region !== cur;
-      h += '<p class="eyebrow">' + ico('target') + ' Next objective' + (nxt.pinned ? ' · 📌 pinned' : '') + '</p>';
+      var stTitle = nxt.stage ? ' · ' + esc(nxt.stage.title.split(' — ')[0]) : '';
+      h += '<p class="eyebrow">' + ico('target') + ' Next objective' + stTitle + (nxt.pinned ? ' · 📌 pinned' : '') + '</p>';
       h += '<h2 class="obj-name">' + esc(it.name) + ' <span class="pct">' + pctLabel(it) + '</span></h2>';
-      h += '<p class="obj-type">' + esc(TYPE_LABEL[it.type]) + ' · ' + (away ? 'head to <b>' + esc(shortRegion(it.region)) + '</b>' : 'here in <b>' + esc(shortRegion(it.region)) + '</b>') + '</p>';
+      h += '<p class="obj-type">' + esc(TYPE_LABEL[it.type]) + ' · ' + (away ? 'head to <a href="#/region/' + it.region + '"><b>' + esc(shortRegion(it.region)) + '</b></a>' : 'here in <a href="#/region/' + it.region + '"><b>' + esc(shortRegion(it.region)) + '</b></a>') + '</p>';
       var reqs = it.req.length || it.any.length || E.missingRegionAccess(it.region).length || it.soft;
       if (reqs) h += '<div class="req-list">' + objReqList(it) + '</div>';
       h += gapHint(it);
       if (nxt.missing.length) h += '<p class="small neg">Blocked — missing: ' + missingHtml(nxt.missing) + '</p>';
-      if (it.loc || it.how) h += '<details class="obj-how' + (s.settings.spoilers ? ' spoiler' : '') + '"><summary>Where & how</summary><p class="sp">' + esc(it.loc || '') + '</p><p class="sp muted">' + esc(it.how || '') + '</p>' +
+      if (it.loc || it.how) h += '<details class="obj-how' + (s.settings.spoilers ? ' spoiler' : '') + '"' + (!s.settings.spoilers ? ' open' : '') + '><summary>Where &amp; how</summary><p class="sp">' + esc(it.loc || '') + '</p><p class="sp muted">' + esc(it.how || '') + '</p>' +
         (E.recommendedGeo(nxt) ? '<p class="small">Recommended Geo: <b class="gold">' + fmt(E.recommendedGeo(nxt)) + '</b> <span class="muted">(you have ' + fmt(s.resources.geo) + ')</span></p>' : '') + '</details>';
       h += '<div class="obj-actions"><button class="btn btn-primary" data-action="toggle" data-id="' + it.id + '">✓ Mark done</button>' +
         '<button class="btn ghost" data-action="open-item" data-id="' + it.id + '">Details</button>' +
-        '<button class="btn ghost" data-action="pin" data-id="' + it.id + '">' + (s.pinned === it.id ? 'Unpin' : 'Pin') + '</button></div>';
+        '<button class="btn ghost" data-action="pin" data-id="' + it.id + '">' + (s.pinned === it.id ? 'Unpin' : 'Pin') + '</button>' +
+        '<button class="btn ghost" data-action="later" data-id="' + it.id + '">' + (store.isLater(it.id) ? '🕒 Parked' : '🕒 Later') + '</button>' +
+        (away ? '<button class="btn ghost" data-action="set-region" data-id="' + it.region + '">📍 I am in ' + esc(shortRegion(it.region)) + '</button>' : '') + '</div>';
     }
     h += '</section>';
-    // three numbers
+    // four primary KPIs
     h += '<div class="kpis"><a class="kpi" href="#/audit"><span>Completion</span><b>' + c.value + '<small>/112%</small></b>' + bar(c.value / 112 * 100) + '</a>' +
       '<a class="kpi" href="#/checklist"><span>Checklist</span><b>' + cl.done + '<small>/' + cl.total + '</small></b>' + bar(cl.done / cl.total * 100) + '</a>' +
       '<a class="kpi" href="#/trackers/geo"><span>Geo</span><b>' + fmt(s.resources.geo) + '</b><small class="muted">' + (E.nextNail() ? 'next nail ' + fmt(E.nextNail().geo) : 'nail maxed') + '</small></a>' +
       '<a class="kpi" href="#/trackers/charms"><span>Charms</span><b>' + E.charmCount() + '<small>/40</small></b>' + bar(E.charmCount() / 40 * 100) + '</a></div>';
+    // quick resources & equipment strip
+    h += '<section class="card quick-strip"><div class="qs-head"><span class="qs-title">Quick resources &amp; gear</span>' +
+      '<div class="qs-pills">' +
+        '<a class="qs-pill" href="#/trackers/nail">⚔ <b>' + esc(E.NAIL_NAMES[E.nailLevel()]) + '</b> <small>(' + o.collected + '/6 Ore)</small></a>' +
+        '<a class="qs-pill" href="#/trackers/masks">◈ <b>' + sh.masks + '</b> Masks <small>(' + sh.shards + '/16)</small></a>' +
+        '<a class="qs-pill" href="#/trackers/masks">◉ <b>' + v.vessels + '/3</b> Vessels <small>(' + v.fragments + '/9)</small></a>' +
+        '<a class="qs-pill" href="#/builds">✦ <b>' + E.notches() + '/11</b> Notches</a>' +
+      '</div></div>' + resourceEditors() + '</section>';
     // here + up next
     var here = E.whileHere(cur, nxt && nxt.item.id, 5);
     h += '<div class="duo">';
@@ -317,17 +329,19 @@
       regionMenu(cur) + '</div>' +
       leftSummary(cur) + (function () { var R = E.readiness(cur); return R ? '<p class="small">' + diffBadge(R.diff) + ' <a class="rd-state ' + ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[R.level] + '" href="#/region/' + cur + '">' + ({ blocked: 'missing a minimum', under: 'under-prepared', almost: 'almost ready', ready: 'ready' })[R.level] + ' →</a></p>' : ''; })() +
       (here.length ? '<div class="rp-list">' + here.map(function (i) { return rrow(i, { id: true }); }).join('') + '</div>' : '<p class="muted">Nothing accessible left here — time to move on.</p>') +
-      '<a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a> <a class="link-more" href="' + MG_URL + '" target="_blank" rel="noopener noreferrer">MapGenie ↗</a></section>';
+      '<div class="card-foot-links"><a class="link-more" href="#/region/' + cur + '">Everything in ' + esc(shortRegion(cur)) + ' →</a> <a class="link-more" href="' + MG_URL + '" target="_blank" rel="noopener noreferrer">MapGenie ↗</a></div></section>';
     var up = routeList(4);
-    h += '<section class="card"><div class="card-title"><h3>' + ico('route') + ' Up next</h3><a class="link-more" href="#/roadmap">Route →</a></div>' +
-      (up.length ? '<ol class="upnext">' + up.map(function (g, i) { return '<li' + (i === 0 ? ' class="now"' : '') + '><button data-action="open-item" data-id="' + g.id + '"><b>' + esc(g.name) + '</b><small>' + esc(shortRegion(g.region)) + '</small></button></li>'; }).join('') + '</ol>' : '<p class="muted">The main route is complete.</p>') + '</section>';
+    h += '<section class="card"><div class="card-title"><h3>' + ico('route') + ' Up next</h3><a class="link-more" href="#/roadmap">Full Route →</a></div>' +
+      (up.length ? '<ol class="upnext">' + up.map(function (g, i) { return '<li' + (i === 0 ? ' class="now"' : '') + '><button data-action="open-item" data-id="' + g.id + '"><b>' + esc(g.name) + '</b><small>' + esc(TYPE_LABEL[g.type] || g.type) + ' · ' + esc(shortRegion(g.region)) + (pctLabel(g) ? ' · ' + pctLabel(g) : '') + '</small></button></li>'; }).join('') + '</ol>' : '<p class="muted">The main route is complete.</p>') + '</section>';
     h += '</div>';
     // regions at a glance
-    h += '<section class="card"><div class="card-title"><h3>' + ico('compass') + ' Regions</h3><a class="link-more" href="#/regions">All →</a></div><div class="rg-list">';
+    var doneRegs = DATA.REGIONS.filter(function (r) { return E.regionProgress(r.id).complete; }).length;
+    var accRegs = DATA.REGIONS.filter(function (r) { var p = E.regionProgress(r.id); return !p.complete && p.accessible; }).length;
+    h += '<section class="card"><div class="card-title"><h3>' + ico('compass') + ' Regions <span class="muted small">' + doneRegs + '/18 complete · ' + accRegs + ' open</span></h3><a class="link-more" href="#/regions">All regions →</a></div><div class="rg-list">';
     DATA.REGIONS.forEach(function (r) {
       var p = E.regionProgress(r.id), isCur = r.id === cur;
       var stt = isCur ? 'current' : p.complete ? 'complete' : p.accessible ? 'accessible' : 'locked';
-      h += '<a class="rg-row st-' + stt + '" href="#/region/' + r.id + '"><span class="rg-dot" aria-hidden="true"></span><span class="rg-name">' + esc(shortRegion(r.id)) + '</span>' +
+      h += '<a class="rg-row st-' + stt + '" href="#/region/' + r.id + '"><span class="rg-dot" aria-hidden="true"></span><span class="rg-name">' + esc(shortRegion(r.id)) + (isCur ? ' <small>here</small>' : '') + '</span>' +
         '<span class="rg-bar">' + bar(p.pct) + '</span><span class="rg-num">' + p.mainDone + '/' + p.main + '</span></a>';
     });
     h += '</div></section>';
@@ -385,9 +399,18 @@
     E.stageStatus().forEach(function (x) { states[x.stage.id] = x; });
     var h = '<header class="page-head"><h1>Route</h1><p class="lead">The story of Hallownest in the order it is told, Act by Act. Recommended, never mandatory: it adapts to anything you do out of order.</p></header>';
     h += voidHeartBanner(true);
+    h += '<div class="route-toolbar card">' +
+      '<div class="rt-jumps"><span class="muted small">Jump to:</span>' +
+      DATA.ACTS.map(function (act) {
+        var shortT = act.title.split(' — ')[0];
+        return '<button type="button" class="fchip" data-action="scroll-to" data-id="rt-' + act.id + '">' + esc(shortT) + '</button>';
+      }).join('') +
+      '<button type="button" class="btn small btn-primary" data-action="route-jump">→ Current step</button></div>' +
+      '<label class="toggle"><input type="checkbox" data-action="route-filter"' + (ui.routeHideDone ? ' checked' : '') + '> Hide completed steps</label>' +
+    '</div>';
     var n = 0;
     DATA.ACTS.forEach(function (act) {
-      h += '<section class="rt-act' + (act.id === 'act-5' ? ' rt-beyond' : '') + '"><header class="rt-act-head"><h2>' + esc(act.title) + '</h2><p class="muted">' + esc(act.lead) + '</p></header><ol class="route">';
+      h += '<section id="rt-' + act.id + '" class="rt-act' + (act.id === 'act-5' ? ' rt-beyond' : '') + (ui.routeHideDone ? ' hide-done' : '') + '"><header class="rt-act-head"><h2>' + esc(act.title) + '</h2><p class="muted">' + esc(act.lead) + '</p></header><ol class="route">';
       act.stages.forEach(function (sid) {
         var x = states[sid]; if (!x) return;
         var st = x.stage;
@@ -398,7 +421,7 @@
             n += 1;
             h += routeStepHtml(n, c.status, esc(c.region.name), c.done + '/' + c.items.length,
               '<details class="rt-more"' + (c.status === 'current' ? ' open' : '') + '><summary>' + (c.complete ? 'All done' : (c.items.length - c.done) + ' left') + '</summary>' + chipsHtml(c.items) + '</details>' +
-              '<p class="rt-links"><a href="#/region/' + c.region.id + '">Open ' + esc(c.region.name) + '</a></p>');
+              '<p class="rt-links"><a href="#/region/' + c.region.id + '">Open ' + esc(c.region.name) + ' →</a></p>');
           });
           return;
         }
@@ -408,7 +431,7 @@
         if (sid === 's-112') body = '<p>' + E.completion().value + ' / 112%</p>';
         else body = chipsHtml(goals);
         if (sid === 's-kingsoul') body += voidHeartBanner(true);
-        if (st.region) body += '<p class="rt-links"><a href="#/region/' + st.region + '">Open ' + esc(regionName(st.region)) + '</a></p>';
+        if (st.region) body += '<p class="rt-links"><a href="#/region/' + st.region + '">Open ' + esc(regionName(st.region)) + ' →</a></p>';
         h += routeStepHtml(n, x.status, esc(st.title), x.total ? x.done + '/' + x.total : '', body);
       });
       h += '</ol></section>';
@@ -489,16 +512,39 @@
     return '<p class="small gold">Better with: ' + bits.map(esc).join(' · ') + '</p>';
   }
   views.regions = function () {
-    var h = '<header class="page-head"><h1>Regions</h1><p class="lead">Optional items never block a region.</p></header>' + regionSelect();
-    h += '<div class="region-grid">' + DATA.REGIONS.map(function (r) {
-      var p = E.regionProgress(r.id), status = E.regionStatus(r.id);
+    var rf = ui.regionFilter || 'all';
+    var counts = { all: DATA.REGIONS.length, open: 0, done: 0, locked: 0 };
+    DATA.REGIONS.forEach(function (r) {
+      var p = E.regionProgress(r.id);
+      if (p.complete) counts.done++;
+      else if (p.accessible) counts.open++;
+      else counts.locked++;
+    });
+    var h = '<header class="page-head"><h1>Regions</h1><p class="lead">All 18 areas of Hallownest. Optional items never block a region.</p></header>';
+    h += '<div class="regions-toolbar">' + regionSelect() +
+      '<div class="chips">' +
+        [['all', 'All (' + counts.all + ')'], ['open', 'Accessible (' + counts.open + ')'], ['done', 'Completed (' + counts.done + ')'], ['locked', 'Needs access (' + counts.locked + ')']].map(function (x) {
+          return '<button type="button" class="fchip' + (rf === x[0] ? ' on' : '') + '" data-action="region-filter" data-f="' + x[0] + '">' + x[1] + '</button>';
+        }).join('') +
+      '</div></div>';
+    h += '<div class="region-grid">' + DATA.REGIONS.filter(function (r) {
+      if (rf === 'all') return true;
+      var p = E.regionProgress(r.id);
+      if (rf === 'done') return p.complete;
+      if (rf === 'open') return !p.complete && p.accessible;
+      if (rf === 'locked') return !p.complete && !p.accessible;
+      return true;
+    }).map(function (r) {
+      var p = E.regionProgress(r.id), status = E.regionStatus(r.id), rd = E.readiness(r.id);
       var goal = E.regionItems(r.id).filter(function (i) { return !i.derived && !i.optional && !i.beyond && !E.isDone(i.id) && !(i.voidHeart && E.isVoidHeartLocked()); })
         .sort(function (a, b) { return (b.goal ? 1 : 0) - (a.goal ? 1 : 0) || (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0); })[0];
-      return '<a class="region-card theme-' + r.theme + ' st-' + status + '" href="#/region/' + r.id + '">' +
-        '<div class="rc-top"><span class="rc-status">' + (status === 'complete' ? 'Done' : status === 'current' ? 'You are here' : status === 'next' ? 'Next up' : '') + '</span>' + (p.accessible ? '' : '<span class="rc-lock">needs access</span>') + '</div>' +
+      var rdLabel = rd && !p.complete ? ({ blocked: 'Missing min', under: 'Under-prepared', almost: 'Almost ready', ready: 'Ready' })[rd.level] : '';
+      var rdCls = rd ? ({ blocked: 'neg', under: 'neg', almost: 'gold', ready: 'pos' })[rd.level] : '';
+      return '<a class="region-card theme-' + r.theme + ' st-' + status + (!p.accessible ? ' is-locked' : '') + '" href="#/region/' + r.id + '">' +
+        '<div class="rc-top"><span class="rc-status">' + (status === 'complete' ? '✓ Done' : status === 'current' ? '📍 You are here' : status === 'next' ? '→ Next up' : rdLabel ? '<span class="' + rdCls + '">' + rdLabel + '</span>' : '') + '</span>' + (p.accessible ? '<span class="rc-pct">' + p.pct + '%</span>' : '<span class="rc-lock">🔒 needs access</span>') + '</div>' +
         '<h3>' + esc(r.name) + '</h3>' + diffBadge((DATA.REGION_GUIDE[r.id] || {}).diff) + '<div class="bar"><span style="width:' + p.pct + '%"></span></div>' +
         '<div class="rc-meta">' + p.mainDone + '/' + p.main + ' main · ' + p.allDone + '/' + p.all + ' total' + (function () { var G = E.regionGeo(r.id); return G.remaining ? ' · ' + fmt(G.remaining) + ' Geo' : ''; })() + '</div>' +
-        (goal ? '<div class="rc-goal">Next: ' + esc(goal.name) + '</div>' : '<div class="rc-goal pos">Main route done</div>') + '</a>';
+        (goal ? '<div class="rc-goal">Next: <b>' + esc(goal.name) + '</b></div>' : '<div class="rc-goal pos">✓ Main route done</div>') + '</a>';
     }).join('') + '</div>';
     return h;
   };
@@ -522,23 +568,28 @@
   views.region = function (id) {
     var r = E.regionById[id]; if (!r) return views.regions();
     document.body.setAttribute('data-theme', r.theme);
+    var rIdx = DATA.REGIONS.indexOf(r);
+    var prevR = rIdx > 0 ? DATA.REGIONS[rIdx - 1] : null;
+    var nextR = rIdx >= 0 && rIdx < DATA.REGIONS.length - 1 ? DATA.REGIONS[rIdx + 1] : null;
     var p = E.regionProgress(id), status = E.regionStatus(id), items = E.regionItems(id);
-    var h = '<header class="page-head region-head theme-' + r.theme + '">' + '<div class="rh-art">' + regionArt(r, 1000, 220) + '</div>' + '<a href="#/regions" class="back">← Regions</a><h1>' + esc(r.name) + '</h1>' +
-      '<div class="bar big"><span style="width:' + p.pct + '%"></span></div><p class="muted">' + (status === 'complete' ? 'Done · ' : status === 'current' ? 'You are here · ' : status === 'next' ? 'Next up · ' : '') + p.mainDone + '/' + p.main + ' main route · ' + p.allDone + '/' + p.all + ' everything</p>' +
+    var h = '<header class="page-head region-head theme-' + r.theme + '">' + '<div class="rh-art">' + regionArt(r, 1000, 220) + '</div>' +
+      '<div class="rh-nav"><a href="#/regions" class="back">← All Regions</a>' +
+      '<div class="rh-adj">' +
+        (prevR ? '<a href="#/region/' + prevR.id + '" class="back" title="Previous region">‹ ' + esc(shortRegion(prevR.id)) + '</a>' : '') +
+        (nextR ? '<a href="#/region/' + nextR.id + '" class="back" title="Next region">' + esc(shortRegion(nextR.id)) + ' ›</a>' : '') +
+      '</div></div>' +
+      '<h1>' + esc(r.name) + '</h1>' +
+      '<div class="bar big"><span style="width:' + p.pct + '%"></span></div><p class="muted">' + (status === 'complete' ? 'Done · ' : status === 'current' ? 'You are here · ' : status === 'next' ? 'Next up · ' : '') + p.mainDone + '/' + p.main + ' main route (' + p.pct + '%) · ' + p.allDone + '/' + p.all + ' everything</p>' +
       '<p class="access small">' + esc(r.access) + '</p>';
     var acc = E.missingRegionAccess(id);
     if (acc.length) h += '<div class="banner warn compact">Access requirements not recorded: ' + missingHtml(acc) + '</div>';
-    h += '<div class="btn-row">' + (st().currentRegion !== id ? '<button class="btn small" data-action="set-region" data-id="' + id + '">I am here</button>' : '') + mgLink(id) + '</div>';
+    h += '<div class="btn-row">' + (st().currentRegion !== id ? '<button class="btn small btn-primary" data-action="set-region" data-id="' + id + '">📍 I am here</button>' : '<span class="badge ok">📍 Current region</span>') + mgLink(id) + '</div>';
     h += '</header>';
     h += readinessCard(id);
     h += leftCard(id);
-    var main = items.filter(function (i) { return !i.derived && !i.optional && !i.beyond && !E.isDone(i.id) && !E.isImplied(i.id) && !(i.voidHeart && E.isVoidHeartLocked()); })
-      .sort(function (a, b) { return (b.goal ? 1 : 0) - (a.goal ? 1 : 0) || (E.stageIndex[a.stage] || 0) - (E.stageIndex[b.stage] || 0) || (b.prio || 0) - (a.prio || 0); })[0];
-    var here = E.whileHere(id, main && main.id);
-    var todo = (main ? [main] : []).concat(here.slice(0, 7));
-    if (todo.length) h += '<section class="card"><h3>To do here</h3>' + itemList(todo) + '</section>';
     if (id === 'the-abyss' || id === 'queens-gardens' || id === 'white-palace') h += voidHeartBanner(true);
     if (id === 'forgotten-crossroads' || id === 'dirtmouth') h += '<div class="banner"><strong>◌ Grubs: ' + st().resources.grubs + '/46</strong><span>Grubfather rewards: 5 → Mask Shard · 10 → Grubsong · 31 → Pale Ore · 46 → Grubberfly\'s Elegy. Per-grub locations: <a href="https://hollowknight.wiki/w/Grubs" target="_blank" rel="noopener">Wiki ↗</a></span></div>';
+    h += '<div class="section-bar"><h2>Region checklist &amp; points of interest</h2><button type="button" class="btn small ghost" data-action="region-expand-all">' + (ui.regionExpandAll ? 'Collapse all' : 'Expand all') + '</button></div>';
     h += grubsCard(id);
     var used = {};
     REGION_GROUPS.forEach(function (g) {
@@ -546,10 +597,11 @@
       list.forEach(function (i) { used[i.id] = true; });
       if (!list.length) return;
       var d = list.filter(function (i) { return E.isDone(i.id); }).length;
-      h += '<details class="card group"><summary><h3>' + g[0] + '</h3><span class="muted small">' + d + '/' + list.length + '</span></summary>' + itemList(list) + '</details>';
+      var isOpen = ui.regionExpandAll || (d < list.length && list.length <= 5);
+      h += '<details class="card group"' + (isOpen ? ' open' : '') + '><summary><h3>' + g[0] + '</h3><span class="grp-meta"><span class="muted small">' + d + '/' + list.length + '</span></span></summary>' + itemList(list) + '</details>';
     });
     var rest = items.filter(function (i) { return !used[i.id] && !(i.type === 'derived'); });
-    if (rest.length) h += '<details class="card group"><summary><h3>Other</h3><span class="muted small">' + rest.length + '</span></summary>' + itemList(rest) + '</details>';
+    if (rest.length) h += '<details class="card group"' + (ui.regionExpandAll ? ' open' : '') + '><summary><h3>Other</h3><span class="muted small">' + rest.length + '</span></summary>' + itemList(rest) + '</details>';
     h += poiCard(id);
     h += '<section class="card"><h3>📝 My notes — ' + esc(shortRegion(id)) + '</h3><label class="note-label"><textarea data-action="note" data-id="region:' + id + '" rows="3" placeholder="E.g. come back with Monarch Wings…">' + esc(st().notes['region:' + id] || '') + '</textarea></label></section>';
     return h;
@@ -561,7 +613,7 @@
     var list = HK.POI.LIST.filter(function (p) { return p.region === id; });
     if (!list.length) return '';
     var order = ['stag', 'bench', 'tram', 'vendor', 'npc', 'spring', 'cornifer', 'cocoon', 'landmark', 'boss'];
-    var h = '<details class="card group"><summary><h3>Benches, stations & NPCs</h3><span class="muted small">' + list.length + '</span></summary>';
+    var h = '<details class="card group"' + (ui.regionExpandAll ? ' open' : '') + '><summary><h3>Benches, stations &amp; NPCs</h3><span class="muted small">' + list.length + '</span></summary>';
     order.forEach(function (t) {
       var l = list.filter(function (p) { return p.type === t; });
       if (!l.length) return;
@@ -616,13 +668,13 @@
 
   /* ------------------------------ settings ------------------------------ */
   views.settings = function () {
-    var h = '<header class="page-head"><h1>Tools & Settings</h1></header>';
-    h += '<section class="card"><h3>Settings</h3><div class="settings">' +
+    var h = '<header class="page-head"><h1>Tools &amp; Settings</h1><p class="lead">Customize display preferences, manage multiple save profiles, and inspect the 112% database.</p></header>';
+    h += '<section class="card"><h3>Display &amp; Spoiler Settings</h3><div class="settings">' +
       setting('spoilers', 'Spoiler protection (blur locations & instructions until hovered/tapped)') +
       setting('compact', 'Compact lists') + setting('hideOptional', 'Hide optional items in the checklist') + setting('hideDone', 'Hide completed items in the checklist') + '</div></section>';
     h += profilesCard();
-    h += '<section class="card"><h3>Tools</h3><div class="btn-row">' +
-      '<button class="btn" data-action="open-editor">' + ico('edit') + ' Update my save</button>' +
+    h += '<section class="card"><h3>Quick Tools</h3><div class="btn-row">' +
+      '<button class="btn btn-primary" data-action="open-editor">' + ico('edit') + ' Update my save</button>' +
       '<a class="btn" href="#/save">' + ico('save') + ' Import save / backup</a>' +
       '<a class="btn" href="#/soundtrack">' + ico('note') + ' Soundtrack</a>' +
       '<a class="btn" href="#/audit">' + ico('chart') + ' 112% audit</a></div></section>';
@@ -653,27 +705,65 @@
     var items = DATA.ITEMS.filter(function (i) {
       return matchFilter(i, ui.filter) && matchQuery(i, ui.query) && !(s.settings.hideDone && E.isDone(i.id)) && !(s.settings.hideOptional && (i.optional || i.beyond));
     });
-    var h = '<header class="page-head"><h1>Checklist</h1><p class="lead">Everything in the guide. Completion (official %) and checklist (everything) are separate metrics.</p></header>';
-    h += '<div class="filter-bar"><input type="search" class="search-local" placeholder="Filter list…" value="' + esc(ui.query) + '" data-action="local-search" aria-label="Filter checklist">' +
-      '<div class="chips filters">' + FILTERS.map(function (f) { return '<button class="fchip' + (ui.filter === f[0] ? ' on' : '') + '" data-action="filter" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
-      '<label class="toggle"><input type="checkbox" data-action="setting" data-key="hideDone"' + (s.settings.hideDone ? ' checked' : '') + '> Hide done</label>' +
-      '<label class="toggle"><input type="checkbox" data-action="setting" data-key="hideOptional"' + (s.settings.hideOptional ? ' checked' : '') + '> Hide optional</label>' +
-      '<label class="toggle"><input type="checkbox" data-action="setting" data-key="compact"' + (s.settings.compact ? ' checked' : '') + '> Compact</label></div>';
     var done = items.filter(function (i) { return E.isDone(i.id); }).length;
-    h += '<p class="muted">' + done + ' / ' + items.length + ' shown items done</p>';
+    var pct = items.length ? Math.round(done / items.length * 100) : 100;
+    var activeRegs = DATA.REGIONS.filter(function (r) { return items.some(function (i) { return i.region === r.id; }); });
+    var h = '<header class="page-head"><h1>Checklist</h1><p class="lead">Everything in the guide. Completion (official %) and checklist (everything) are separate metrics.</p></header>';
+    h += '<section class="card chk-controls"><div class="filter-bar">' +
+      '<input type="search" class="search-local" placeholder="Filter checklist by name, location, or type…" value="' + esc(ui.query) + '" data-action="local-search" aria-label="Filter checklist">' +
+      '<div class="chk-toggles">' +
+        '<label class="toggle"><input type="checkbox" data-action="setting" data-key="hideDone"' + (s.settings.hideDone ? ' checked' : '') + '> Hide done</label>' +
+        '<label class="toggle"><input type="checkbox" data-action="setting" data-key="hideOptional"' + (s.settings.hideOptional ? ' checked' : '') + '> Hide optional</label>' +
+        '<label class="toggle"><input type="checkbox" data-action="setting" data-key="compact"' + (s.settings.compact ? ' checked' : '') + '> Compact</label>' +
+      '</div></div>' +
+      '<div class="chips filters">' + FILTERS.map(function (f) { return '<button class="fchip' + (ui.filter === f[0] ? ' on' : '') + '" data-action="filter" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="chk-progress-row"><p class="muted">' + done + ' / ' + items.length + ' shown items done (' + pct + '%)</p>' + bar(pct) + '</div>';
+    if (activeRegs.length > 1) {
+      h += '<div class="region-jump"><span class="muted small">Jump to region:</span>' + activeRegs.map(function (r) {
+        var rList = items.filter(function (i) { return i.region === r.id; });
+        var rDone = rList.filter(function (i) { return E.isDone(i.id); }).length;
+        return '<button type="button" class="rj-pill' + (rDone === rList.length ? ' done' : '') + '" data-action="scroll-to" data-id="chk-reg-' + r.id + '">' + esc(shortRegion(r.id)) + ' <small>' + rDone + '/' + rList.length + '</small></button>';
+      }).join('') + '</div>';
+    }
+    h += '</section>';
     DATA.REGIONS.forEach(function (r) {
       var list = items.filter(function (i) { return i.region === r.id; });
       if (!list.length) return;
-      h += '<section class="card"><h3><a href="#/region/' + r.id + '">' + esc(r.name) + '</a> <span class="muted small">' + list.filter(function (i) { return E.isDone(i.id); }).length + '/' + list.length + '</span></h3>' + itemList(list) + '</section>';
+      var rDone = list.filter(function (i) { return E.isDone(i.id); }).length;
+      h += '<section class="card" id="chk-reg-' + r.id + '"><div class="card-title"><h3><a href="#/region/' + r.id + '">' + esc(r.name) + '</a> <span class="muted small">' + rDone + '/' + list.length + '</span></h3><a class="small muted" href="#/region/' + r.id + '">Region guide →</a></div>' + itemList(list) + '</section>';
     });
     return h;
   };
 
   /* ------------------------------ trackers ------------------------------ */
   function trackerTabs(active) {
+    var sh = E.shards(), v = E.vessels(), o = E.ore(), s = st();
+    var mvSp = ['mothwing-cloak', 'mantis-claw', 'crystal-heart', 'monarch-wings', 'ismas-tear', 'shade-cloak', 'kings-brand', 'lumafly-lantern', 'vengeful-spirit', 'shade-soul', 'desolate-dive', 'descending-dark', 'howling-wraiths', 'abyss-shriek'];
+    var nArts = ['great-slash', 'dash-slash', 'cyclone-slash'];
+    var drm = ['herrah', 'lurien', 'monomon'];
+    var colo = ['trial-warrior', 'trial-conqueror', 'trial-fool'];
+    var panth = ['pantheon-master', 'pantheon-artist', 'pantheon-sage', 'pantheon-knight'];
+    var badges = {
+      geo: fmt(s.resources.geo),
+      abilities: mvSp.filter(E.isDone).length + '/14',
+      keys: E.keys().got + '/4',
+      nail: o.collected + '/6 ore',
+      masks: sh.masks + 'M · ' + v.vessels + 'V',
+      charms: E.charmCount() + '/40',
+      nailarts: nArts.filter(E.isDone).length + '/3',
+      essence: fmt(s.resources.essence),
+      grubs: s.resources.grubs + '/46',
+      endings: drm.filter(E.isDone).length + '/3',
+      grimm: E.completionBreakdown()['The Grimm Troupe'].got + '/6%',
+      colosseum: colo.filter(E.isDone).length + '/3',
+      godhome: panth.filter(E.isDone).length + '/4'
+    };
     var tabs = [['geo', 'Geo'], ['abilities', 'Movement & Spells'], ['keys', 'Keys'], ['nail', 'Nail & Ore'], ['relics', 'Relics'], ['masks', 'Masks & Vessels'], ['charms', 'Charms'], ['nailarts', 'Nail Arts'], ['essence', 'Essence'], ['grubs', 'Grubs'],
       ['bosses', 'Bosses'], ['guide', 'Boss guide'], ['endings', 'Dreamers & Endings'], ['grimm', 'Grimm Troupe'], ['colosseum', 'Colosseum'], ['godhome', 'Godhome']];
-    return '<div class="tabs" role="tablist">' + tabs.map(function (t) { return '<a role="tab" class="tab' + (t[0] === active ? ' on' : '') + '" href="#/trackers/' + t[0] + '">' + t[1] + '</a>'; }).join('') + '</div>';
+    return '<div class="tabs tracker-tabs" role="tablist">' + tabs.map(function (t) {
+      var b = badges[t[0]] ? ' <small class="tab-count">' + badges[t[0]] + '</small>' : '';
+      return '<a role="tab" class="tab' + (t[0] === active ? ' on' : '') + '" href="#/trackers/' + t[0] + '">' + t[1] + b + '</a>';
+    }).join('') + '</div>';
   }
   function itemsWhere(fn) { return DATA.ITEMS.filter(fn); }
   var trackers = {};
@@ -739,8 +829,9 @@
   function grubsCard(regionId) {
     var list = (DATA.GRUBS || []).filter(function (g) { return g.region === regionId; }); if (!list.length) return '';
     var got = list.filter(function (g) { return (st().grubs || {})[g.id]; }).length;
-    return '<section class="card"><h3>◌ Grubs here <span class="muted small">' + got + '/' + list.length + '</span></h3><div class="gr-list">' + list.map(grubRowHtml).join('') + '</div>' +
-      '<p class="small"><a href="#/trackers/grubs">All 46 Grubs →</a></p></section>';
+    var openAttr = (ui.regionExpandAll || got < list.length) ? ' open' : '';
+    return '<details class="card group"' + openAttr + '><summary><h3>◌ Grubs here</h3><span class="muted small">' + got + '/' + list.length + '</span></summary><div class="gr-list">' + list.map(grubRowHtml).join('') + '</div>' +
+      '<p class="small grp-foot"><a href="#/trackers/grubs">All 46 Grubs →</a></p></details>';
   }
   /* The Grub tracker: all 46 Grubs, region by region, each with where it is and what it needs. */
   trackers.grubs = function () {
@@ -1377,32 +1468,36 @@
   function editorHtml() {
     var s = st(), h = '';
     function tg(id) { var it = byId[id]; return '<label class="ed-toggle' + (E.isDone(id) ? ' on' : '') + '"><input type="checkbox" data-action="toggle" data-id="' + id + '"' + (E.isDone(id) ? ' checked' : '') + '><span>' + esc(it.name) + '</span>' + (it.completion ? '<small>+' + it.completion + '%</small>' : '') + '</label>'; }
-    function group(title, ids) { return '<fieldset class="ed-group"><legend>' + title + '</legend><div class="ed-grid">' + ids.map(tg).join('') + '</div></fieldset>'; }
+    function group(title, ids, gid) { return '<fieldset class="ed-group"' + (gid ? ' id="ed-' + gid + '"' : '') + '><legend>' + title + '</legend><div class="ed-grid">' + ids.map(tg).join('') + '</div></fieldset>'; }
     function spellSel(label, a, b, names) {
       var v = E.isDone(b) ? 2 : E.isDone(a) ? 1 : 0;
       return '<label class="ed-select"><span>' + label + '</span><select data-action="spell" data-a="' + a + '" data-b="' + b + '">' + ['None', names[0], names[1]].map(function (n, i) { return '<option value="' + i + '"' + (i === v ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>';
     }
+    h += '<div class="ed-nav">' +
+      [['move', 'Movement'], ['spells', 'Spells & Nail'], ['res', 'Resources'], ['shards', 'Masks & Vessels'], ['charms', 'Charms'], ['bosses', 'Bosses'], ['endings', 'Dreamers & Endings']].map(function (x) {
+        return '<button type="button" class="fchip" data-action="scroll-to" data-id="ed-' + x[0] + '">' + x[1] + '</button>';
+      }).join('') + '</div>';
     h += '<p class="muted small">Single source of truth: anything changed here also changes the checklist, regions and dashboard (and vice-versa). Requirements never block you.</p>';
-    h += group('Movement', ['mothwing-cloak', 'mantis-claw', 'crystal-heart', 'monarch-wings', 'ismas-tear', 'shade-cloak', 'kings-brand', 'lumafly-lantern']);
-    h += '<fieldset class="ed-group"><legend>Spells</legend><div class="ed-grid">' +
+    h += group('Movement', ['mothwing-cloak', 'mantis-claw', 'crystal-heart', 'monarch-wings', 'ismas-tear', 'shade-cloak', 'kings-brand', 'lumafly-lantern'], 'move');
+    h += '<fieldset class="ed-group" id="ed-spells"><legend>Spells</legend><div class="ed-grid">' +
       spellSel('Vengeful Spirit → Shade Soul', 'vengeful-spirit', 'shade-soul', ['Vengeful Spirit', 'Shade Soul']) +
       spellSel('Desolate Dive → Descending Dark', 'desolate-dive', 'descending-dark', ['Desolate Dive', 'Descending Dark']) +
       spellSel('Howling Wraiths → Abyss Shriek', 'howling-wraiths', 'abyss-shriek', ['Howling Wraiths', 'Abyss Shriek']) + '</div></fieldset>';
     h += '<fieldset class="ed-group"><legend>Dream</legend><div class="ed-grid">' + tg('dream-nail') + tg('awoken-dream-nail') + tg('seer-ascension') + '</div>' + resInput('essence', 'Essence', s.resources.essence, 0) + '</fieldset>';
     var lvl = E.nailLevel();
     h += '<fieldset class="ed-group"><legend>Nail</legend><label class="ed-select"><span>Current nail</span><select data-action="nail">' + E.NAIL_NAMES.map(function (n, i) { return '<option value="' + i + '"' + (i === lvl ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' + nailStatusLine() + '</fieldset>';
-    h += '<fieldset class="ed-group"><legend>Resources</legend>' + resourceEditors() + '</fieldset>';
+    h += '<fieldset class="ed-group" id="ed-res"><legend>Resources</legend>' + resourceEditors() + '</fieldset>';
     h += group('Pale Ore (' + E.ore().collected + '/6)', itemsWhere(function (i) { return i.type === 'ore'; }).map(function (i) { return i.id; }));
-    h += group('Mask Shards (' + E.shards().shards + '/16)', itemsWhere(function (i) { return i.type === 'mask'; }).map(function (i) { return i.id; }));
+    h += group('Mask Shards (' + E.shards().shards + '/16)', itemsWhere(function (i) { return i.type === 'mask'; }).map(function (i) { return i.id; }), 'shards');
     h += group('Vessel Fragments (' + E.vessels().fragments + '/9)', itemsWhere(function (i) { return i.type === 'vessel'; }).map(function (i) { return i.id; }));
     h += group('Simple Keys', itemsWhere(function (i) { return i.keyObtain || i.keyUse; }).map(function (i) { return i.id; }));
     h += group('Keys & items', ['shopkeepers-key', 'elegant-key', 'love-key', 'tram-pass', 'city-crest', 'access-city', 'all-stag-stations']);
-    h += group('Charms (' + E.charmCount() + '/40)', itemsWhere(function (i) { return i.type === 'charm'; }).sort(function (a, b) { return (a.charmNum || 99) - (b.charmNum || 99); }).map(function (i) { return i.id; }));
+    h += group('Charms (' + E.charmCount() + '/40)', itemsWhere(function (i) { return i.type === 'charm'; }).sort(function (a, b) { return (a.charmNum || 99) - (b.charmNum || 99); }).map(function (i) { return i.id; }), 'charms');
     h += group('Charm Notches', itemsWhere(function (i) { return i.type === 'notch'; }).map(function (i) { return i.id; }));
     h += group('Nail Arts', ['great-slash', 'dash-slash', 'cyclone-slash']);
-    h += group('Bosses', itemsWhere(function (i) { return i.type === 'boss' && i.tags.indexOf('grimm') < 0 && i.region !== 'godhome'; }).map(function (i) { return i.id; }));
+    h += group('Bosses', itemsWhere(function (i) { return i.type === 'boss' && i.tags.indexOf('grimm') < 0 && i.region !== 'godhome'; }).map(function (i) { return i.id; }), 'bosses');
     h += group('Warrior Dreams & Dream Bosses', itemsWhere(function (i) { return i.type === 'warrior' || i.type === 'dreamboss'; }).map(function (i) { return i.id; }));
-    h += group('Dreamers', ['herrah', 'lurien', 'monomon']);
+    h += group('Dreamers', ['herrah', 'lurien', 'monomon'], 'endings');
     h += group('Grimm Troupe', ['nightmare-lantern', 'grimmchild', 'troupe-master-grimm', 'nightmare-king-grimm', 'banishment', 'carefree-melody']);
     h += group('Colosseum', ['trial-warrior', 'trial-conqueror', 'trial-fool']);
     h += group('Endings', ['ending-thk', 'ending-sealed-siblings', 'ending-dream-no-more']);
@@ -1579,6 +1674,18 @@
   searchBox.addEventListener('click', function () { setTimeout(function () { searchBox.hidden = true; searchInput.value = ''; }, 0); });
 
   /* ============================== ROUTER ============================== */
+  var topStatusEl = document.getElementById('topStatus');
+  function updateTopStatus(routeName) {
+    if (!topStatusEl) return;
+    var s = st(), c = E.completion(), cur = s.currentRegion, nxt = E.nextObjective();
+    var h = '<a class="ts-pill ts-comp" href="#/audit" title="Official 112% completion"><b>' + c.value + '%</b><small>/112</small></a>' +
+      '<a class="ts-pill" href="#/region/' + cur + '" title="Current region"><i class="rm-dot" style="background:' + (REGION_DOT[cur] || '#9aa3b5') + '"></i><span>' + esc(shortRegion(cur)) + '</span></a>' +
+      '<a class="ts-pill ts-res" href="#/trackers/geo" title="Geo · Essence · Grubs">◆ <b>' + fmt(s.resources.geo) + '</b> <span class="ts-sep">·</span> ✧ <b>' + fmt(s.resources.essence) + '</b> <span class="ts-sep">·</span> ◌ <b>' + s.resources.grubs + '/46</b></a>';
+    if (nxt && routeName !== 'dashboard') {
+      h += '<a class="ts-pill ts-next" href="#/dashboard" title="Next recommended objective">🎯 <span>' + esc(nxt.item.name) + '</span></a>';
+    }
+    topStatusEl.innerHTML = h;
+  }
   function route() {
     var hash = location.hash.replace(/^#\/?/, '') || 'dashboard';
     var parts = hash.split('/');
@@ -1591,8 +1698,9 @@
     else if (name === 'plan' && arg === 'builds') { location.replace('#/builds'); return { name: 'builds' }; }
     else if (name === 'plan') html = views.plan(arg);
     else if (views[name]) html = views[name]();
-    else html = views.dashboard();
+    else { name = 'dashboard'; html = views.dashboard(); }
     view.innerHTML = html;
+    updateTopStatus(name);
     if (music) music.setContext(name === 'region' && E.regionById[arg] ? arg : st().currentRegion);
     document.querySelectorAll('[data-nav]').forEach(function (a) {
       var nv = a.getAttribute('data-nav');
@@ -1618,6 +1726,22 @@
     var a = t.getAttribute('data-action'), id = t.getAttribute('data-id');
     if (t.tagName === 'INPUT' && (t.type === 'checkbox' || t.type === 'number' || t.type === 'file')) return; // handled on change
     switch (a) {
+      case 'scroll-to': {
+        var target = document.getElementById(id);
+        if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      case 'route-jump': {
+        var curStep = view.querySelector('.rt-step.st-current') || view.querySelector('.rt-step:not(.st-complete)');
+        if (curStep && curStep.scrollIntoView) curStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      case 'region-filter': ui.regionFilter = t.getAttribute('data-f') || 'all'; render(true); return;
+      case 'region-expand-all':
+        ui.regionExpandAll = !ui.regionExpandAll;
+        view.querySelectorAll('details.card.group').forEach(function (d) { d.open = ui.regionExpandAll; });
+        t.textContent = ui.regionExpandAll ? 'Collapse all' : 'Expand all';
+        return;
       case 'region-toggle': {
         var list = t.parentNode.querySelector('.rm-list'), open = list.hidden;
         closeRegionMenus(); list.hidden = !open; t.setAttribute('aria-expanded', String(open));
@@ -1722,6 +1846,7 @@
     }
     if (a === 'grub-toggle') store.setGrub(id, t.checked);
     if (a === 'grub-filter') { ui[t.getAttribute('data-f')] = t.checked; render(true); }
+    if (a === 'route-filter') { ui.routeHideDone = t.checked; render(true); }
     if (a === 'res') store.setResource(t.getAttribute('data-key'), t.value);
     if (a === 'relic') store.setRelic(t.getAttribute('data-id'), t.getAttribute('data-field'), t.value);
     if (a === 'region') { store.setRegion(t.value); }

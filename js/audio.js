@@ -49,6 +49,7 @@
     mount.innerHTML =
       '<div class="pl-head"><span class="pl-ico" aria-hidden="true">' + I.svg('note') + '</span><div class="pl-meta"><b class="pl-title"></b><span class="pl-sub"></span></div>' +
         '<button class="icon-btn pl-follow" data-music="follow" title="Follow the region on screen" aria-label="Follow region">' + I.svg('follow') + '</button>' +
+        '<button class="icon-btn pl-min" data-music="min" title="Minimize or expand player" aria-label="Minimize player" aria-expanded="true">' + I.svg('chevron') + '</button>' +
         '<button class="icon-btn pl-close" data-music="close" aria-label="Close player">' + I.svg('close') + '</button></div>' +
       '<div class="pl-sdk"><button class="btn small pl-toggle" data-music="toggle" aria-label="Play or pause">' + I.svg('play') + '</button>' +
         '<input class="pl-vol" type="range" min="0" max="1" step="0.05" aria-label="Volume"><span class="pl-sdk-msg muted small">Full track · your Spotify account</span></div>' +
@@ -187,6 +188,10 @@
       var b = e.target.closest('[data-music]'); if (!b) return;
       var a = b.getAttribute('data-music');
       if (a === 'follow') { store.setMusic({ follow: !follow(), region: region() }); load(); }
+      if (a === 'min') {
+        var isMin = mount.classList.toggle('pl-minimized');
+        b.setAttribute('aria-expanded', String(!isMin));
+      }
       if (a === 'close') document.body.classList.remove('player-open');
       if (a === 'connect-go') { location.hash = '#/soundtrack'; document.body.classList.remove('player-open'); }
       if (a === 'toggle' && useSdk()) {
@@ -202,6 +207,8 @@
     return {
       setContext: function (r) { if (!r) return; ctxRegion = r; if (follow()) load(); else render(); },
       play: function (r) {
+        mount.classList.remove('pl-minimized');
+        var minBtn = mount.querySelector('.pl-min'); if (minBtn) minBtn.setAttribute('aria-expanded', 'true');
         store.setMusic({ follow: false, region: r }); document.body.classList.add('player-open');
         if (useSdk()) { try { sdk.player.activateElement(); } catch (x) { /* noop */ } render(); sdkPlay(track(r).uri); return; }
         load(); if (ctrl) setTimeout(function () { try { ctrl.play(); } catch (e) { /* noop */ } }, 500);
